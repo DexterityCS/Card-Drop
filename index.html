@@ -291,12 +291,6 @@ select.f-input option{background:var(--bg3);}
       </div>
 
       <div>
-        <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">This Page's URL <span style="color:#ff8888;">*</span></div>
-        <input class="f-input" id="setupRedirect" placeholder="e.g. https://yourname.github.io/card-drop" style="font-size:13px;padding:9px 12px;">
-        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Must match the OAuth Redirect URL in your Twitch app settings exactly.</div>
-      </div>
-
-      <div>
         <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Channel Point Reward Name</div>
         <input class="f-input" id="setupReward" placeholder="Card Drop" style="font-size:13px;padding:9px 12px;">
         <div style="font-size:11px;color:var(--text3);margin-top:4px;">Exact name of the Channel Point reward viewers redeem. Default: Card Drop</div>
@@ -508,14 +502,13 @@ select.f-input option{background:var(--bg3);}
 function getConfig(){
   return {
     clientId:   localStorage.getItem('cfg_client_id')||'',
-    redirectUri:localStorage.getItem('cfg_redirect_uri')||window.location.origin+window.location.pathname,
+    redirectUri:'https://dexteritycs.github.io/Card-Drop/',
     channelName:localStorage.getItem('cfg_channel_name')||'',
     rewardName: localStorage.getItem('cfg_reward_name')||'Card Drop',
   };
 }
 function saveConfig(c){
   localStorage.setItem('cfg_client_id',   c.clientId.trim());
-  localStorage.setItem('cfg_redirect_uri',c.redirectUri.trim());
   localStorage.setItem('cfg_channel_name',c.channelName.trim().toLowerCase());
   localStorage.setItem('cfg_reward_name', c.rewardName.trim());
 }
@@ -607,7 +600,6 @@ function showSetupPane(){
   const c=getConfig();
   document.getElementById('setupClientId').value=c.clientId;
   document.getElementById('setupChannel').value=c.channelName;
-  document.getElementById('setupRedirect').value=c.redirectUri||window.location.origin+window.location.pathname;
   document.getElementById('setupReward').value=c.rewardName||'Card Drop';
   document.getElementById('setupCard').style.display='block';
   document.getElementById('connectCard').style.display='none';
@@ -619,8 +611,7 @@ function showConnectPane(){
   const c=getConfig();
   document.getElementById('connectSummary').innerHTML=
     `<b style="color:var(--text);">Channel:</b> ${c.channelName}<br>`+
-    `<b style="color:var(--text);">Reward:</b> ${c.rewardName||'Card Drop'}<br>`+
-    `<b style="color:var(--text);">Redirect URL:</b> <span style="color:var(--text3);font-size:11px;">${c.redirectUri}</span>`;
+    `<b style="color:var(--text);">Reward:</b> ${c.rewardName||'Card Drop'}`;
   document.getElementById('setupCard').style.display='none';
   document.getElementById('connectCard').style.display='block';
   showAuthPane();
@@ -629,13 +620,11 @@ function showConnectPane(){
 function saveSetupAndConnect(){
   const clientId=document.getElementById('setupClientId').value.trim();
   const channel=document.getElementById('setupChannel').value.trim().toLowerCase();
-  const redirect=document.getElementById('setupRedirect').value.trim();
   const reward=document.getElementById('setupReward').value.trim()||'Card Drop';
   const err=document.getElementById('setupErr');
   if(!clientId){err.style.display='block';err.textContent='Client ID is required.';return;}
   if(!channel){err.style.display='block';err.textContent='Twitch username is required.';return;}
-  if(!redirect||!redirect.startsWith('http')){err.style.display='block';err.textContent='Enter a valid URL for this page (e.g. https://yourname.github.io/card-drop)';return;}
-  saveConfig({clientId,redirectUri:redirect,channelName:channel,rewardName:reward});
+  saveConfig({clientId,channelName:channel,rewardName:reward});
   startAuth();
 }
 
