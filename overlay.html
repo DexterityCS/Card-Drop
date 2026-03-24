@@ -156,18 +156,20 @@ function openES(){
     if(type==='session_welcome'){
       const res=await fetch('https://api.twitch.tv/helix/eventsub/subscriptions',{method:'POST',headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({type:'channel.channel_points_custom_reward_redemption.add',version:'1',condition:{broadcaster_user_id:broadcasterId},transport:{method:'websocket',session_id:msg.payload.session.id}})});
       if(res.ok||res.status===409){
-        setStatus('Live — listening for "'+REWARD+'"','connected');
+        setStatus('Live · "'+REWARD+'" · '+PLAYERS.length+' cards','connected');
       } else {
         const d=await res.json();
         setStatus('Sub failed: '+(d.message||res.status),'error');
       }
     } else if(type==='notification'){
       const evt=msg.payload.event;
-      if(evt&&evt.reward?.title===REWARD){
+      const evtReward=(evt?.reward?.title||'').trim().toLowerCase();
+      const myReward=REWARD.trim().toLowerCase();
+      if(evt&&evtReward===myReward){
         triggerCard(evt.user_name||evt.user_login||'Viewer');
       } else if(evt){
-        setStatus('Got redeem: "'+evt.reward?.title+'" (not matching "'+REWARD+'")','error');
-        setTimeout(()=>setStatus('Live — listening for "'+REWARD+'"','connected'),4000);
+        setStatus('Got: "'+evt.reward?.title+'" · expected: "'+REWARD+'"','error');
+        setTimeout(()=>setStatus('Live · "'+REWARD+'" · '+PLAYERS.length+' cards','connected'),5000);
       }
     } else if(type==='session_reconnect'){
       esSocket.close();esSocket=new WebSocket(msg.payload.session.reconnect_url);
@@ -204,7 +206,7 @@ function pickRarity(){const tot=RARITIES.reduce((s,r)=>s+r.weight,0);let r=Math.
 function pickPlayer(rname){const pool=PLAYERS.filter(p=>p.rarity===rname);if(!pool.length)return PLAYERS.length?PLAYERS[Math.floor(Math.random()*PLAYERS.length)]:null;return pool[Math.floor(Math.random()*pool.length)];}
 
 function triggerCard(username){
-  if(!PLAYERS.length)return;
+  if(!PLAYERS.length){setStatus('No cards loaded — go to config page, save your cards, then copy a fresh overlay URL','error');return;}
   if(hideTimer)clearTimeout(hideTimer);
   const rarity=pickRarity(),player=pickPlayer(rarity.name);if(!player)return;
   const front=document.getElementById('cardFront'),inner=document.getElementById('cardInner'),wrap=document.getElementById('cardWrap');
