@@ -50,9 +50,6 @@ html,body{width:1920px;height:1080px;background:transparent!important;overflow:h
 .timer-bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;width:260px;}
 .timer-fill{height:100%;border-radius:2px;background:#f0c040;transform-origin:left;transition:transform linear;}
 #errMsg{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(20,0,0,.92);border:1px solid #ff4444;color:#ff8888;font-size:12px;font-weight:700;letter-spacing:1px;padding:8px 18px;border-radius:6px;display:none;white-space:nowrap;}
-#statusBar{position:fixed;top:10px;left:10px;background:rgba(0,0,0,.75);border:1px solid #333;border-radius:6px;padding:6px 12px;font-size:11px;font-family:'Share Tech Mono',monospace;color:#666;line-height:1.6;pointer-events:none;}
-#statusBar.connected{border-color:#4ad48a;color:#4ad48a;}
-#statusBar.error{border-color:#ff6060;color:#ff8888;}
 </style>
 </head>
 <body>
@@ -99,7 +96,6 @@ html,body{width:1920px;height:1080px;background:transparent!important;overflow:h
 </div>
 
 <div id="errMsg"></div>
-<div id="statusBar">Connecting...</div>
 
 <script>
 const RARITIES=[
@@ -146,7 +142,6 @@ let token=localStorage.getItem('twitch_token');
 let broadcasterId=null,esSocket=null,hideTimer=null;
 
 function showErr(msg){const el=document.getElementById('errMsg');el.textContent=msg;el.style.display='block';}
-function setStatus(msg,cls){const el=document.getElementById('statusBar');if(!el)return;el.textContent=msg;el.className=cls||'';}
 
 async function fetchBroadcasterId(){
   const r=await fetch('https://api.twitch.tv/helix/users?login='+CHANNEL,{headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token}});
@@ -158,33 +153,21 @@ async function fetchBroadcasterId(){
 
 function openES(){
   if(esSocket)esSocket.close();
-  setStatus('Connecting to Twitch...','');
   esSocket=new WebSocket('wss://eventsub.wss.twitch.tv/ws');
   esSocket.onmessage=async(e)=>{
     const msg=JSON.parse(e.data),type=msg.metadata?.message_type;
     if(type==='session_welcome'){
-      const res=await fetch('https://api.twitch.tv/helix/eventsub/subscriptions',{method:'POST',headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({type:'channel.channel_points_custom_reward_redemption.add',version:'1',condition:{broadcaster_user_id:broadcasterId},transport:{method:'websocket',session_id:msg.payload.session.id}})});
-      if(res.ok||res.status===409){
-        setStatus('Live · "'+REWARD+'" · '+PLAYERS.length+' cards','connected');
-      } else {
-        const d=await res.json();
-        setStatus('Sub failed: '+(d.message||res.status),'error');
-      }
+      await fetch('https://api.twitch.tv/helix/eventsub/subscriptions',{method:'POST',headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({type:'channel.channel_points_custom_reward_redemption.add',version:'1',condition:{broadcaster_user_id:broadcasterId},transport:{method:'websocket',session_id:msg.payload.session.id}})});
     } else if(type==='notification'){
       const evt=msg.payload.event;
       const evtReward=(evt?.reward?.title||'').trim().toLowerCase();
       const myReward=REWARD.trim().toLowerCase();
-      if(evt&&evtReward===myReward){
-        triggerCard(evt.user_name||evt.user_login||'Viewer');
-      } else if(evt){
-        setStatus('Got: "'+evt.reward?.title+'" · expected: "'+REWARD+'"','error');
-        setTimeout(()=>setStatus('Live · "'+REWARD+'" · '+PLAYERS.length+' cards','connected'),5000);
-      }
+      if(evt&&evtReward===myReward)triggerCard(evt.user_name||evt.user_login||'Viewer');
     } else if(type==='session_reconnect'){
       esSocket.close();esSocket=new WebSocket(msg.payload.session.reconnect_url);
     }
   };
-  esSocket.onclose=(e)=>{if(e.code!==1000){setStatus('Disconnected — reconnecting...','error');setTimeout(openES,5000);}};
+  esSocket.onclose=(e)=>{if(e.code!==1000)setTimeout(openES,5000);};
 }
 
 function drawArt(canvas,player,rarity){
@@ -215,7 +198,7 @@ function pickRarity(){const tot=RARITIES.reduce((s,r)=>s+r.weight,0);let r=Math.
 function pickPlayer(rname){const pool=PLAYERS.filter(p=>p.rarity===rname);if(!pool.length)return PLAYERS.length?PLAYERS[Math.floor(Math.random()*PLAYERS.length)]:null;return pool[Math.floor(Math.random()*pool.length)];}
 
 function triggerCard(username){
-  if(!PLAYERS.length){setStatus('No cards loaded — go to config page, save your cards, then copy a fresh overlay URL','error');return;}
+  if(!PLAYERS.length)return;
   if(hideTimer)clearTimeout(hideTimer);
   const rarity=pickRarity(),player=pickPlayer(rarity.name);if(!player)return;
   const front=document.getElementById('cardFront'),inner=document.getElementById('cardInner'),wrap=document.getElementById('cardWrap');
@@ -250,15 +233,14 @@ function triggerCard(username){
 }
 
 async function init(){
-  if(!CLIENT_ID||!CHANNEL){showErr('Invalid overlay URL — go back to the config page and copy a fresh overlay URL.');setStatus('Invalid URL','error');return;}
-  if(!token){showErr('No auth token — go back to the config page, reconnect with Twitch, then copy a fresh overlay URL.');setStatus('No token','error');return;}
-  setStatus('Authenticating...','');
+  if(!CLIENT_ID||!CHANNEL){showErr('Invalid overlay URL — go back to the config page and copy a fresh overlay URL.');return;}
+  if(!token){showErr('No auth token — go back to the config page, reconnect with Twitch, then copy a fresh overlay URL.');return;}
   try{
     broadcasterId=await fetchBroadcasterId();
     openES();
   }catch(e){
-    if(e.message==='auth_fail'){showErr('Token expired — go back to the config page, reconnect with Twitch, and copy a fresh overlay URL.');setStatus('Token expired','error');}
-    else{showErr('Could not find channel: '+CHANNEL);setStatus('Channel not found: '+CHANNEL,'error');}
+    if(e.message==='auth_fail')showErr('Token expired — go back to the config page, reconnect with Twitch, and copy a fresh overlay URL.');
+    else showErr('Could not find channel: '+CHANNEL);
   }
 }
 
