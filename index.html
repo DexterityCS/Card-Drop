@@ -461,6 +461,22 @@ select.f-input option{background:var(--bg3);}
 <!-- EDITOR -->
 <div id="pane-editor" class="tab-pane">
   <div class="editor-scroll">
+
+    <!-- SET SELECTOR -->
+    <div style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:3px;color:var(--text2);margin-bottom:10px;">Card Set</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div id="setOptPremade" onclick="selectSet('premade')" style="padding:12px 14px;border-radius:8px;cursor:pointer;border:2px solid var(--border2);background:var(--bg3);transition:all .2s;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;color:var(--text);margin-bottom:2px;">Premade Set</div>
+          <div style="font-size:11px;color:var(--text3);">Twitch & Stream Culture · 20 cards</div>
+        </div>
+        <div id="setOptCustom" onclick="selectSet('custom')" style="padding:12px 14px;border-radius:8px;cursor:pointer;border:2px solid var(--gold);background:var(--bg3);transition:all .2s;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;color:var(--text);margin-bottom:2px;">Custom Set</div>
+          <div style="font-size:11px;color:var(--text3);">Your own cards · <span id="customCardCount">0</span> cards</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="setHint">Using your custom cards. Edit them below.</div>
+    </div>
     <div class="theme-sec">
       <div class="sec-title">Theme Colors</div>
       <div class="color-grid" id="themeGrid"></div>
@@ -574,6 +590,30 @@ let players=[
 ];
 let nextId=13;
 let selectedId=null;
+let activeSet='custom'; // 'custom' or 'premade'
+
+const PREMADE_SET=[
+  {id:101,name:'PogChamp Pete',handle:'@pogchamppete',team:'HYPE SQUAD',rarity:'LEGENDARY',series:'ICONS',photoBg:'#1a0820',photoAcc:'#ff40c0',image:null,flavor:'The face that started it all.'},
+  {id:102,name:'Kappa King',handle:'@kappakg',team:'IRONICS FC',rarity:'EPIC',series:'LEGENDS',photoBg:'#080818',photoAcc:'#8080dd',image:null,flavor:'Sarcasm is a full-time job.'},
+  {id:103,name:'MonkaS Mike',handle:'@monkasmike',team:'ANXIETY XI',rarity:'EPIC',series:'LEGENDS',photoBg:'#101820',photoAcc:'#40a0ff',image:null,flavor:'Always watching. Always sweating.'},
+  {id:104,name:'LUL Larry',handle:'@lullarry',team:'COMEDY CLUB',rarity:'RARE',series:'BASE',photoBg:'#0d1808',photoAcc:'#50d820',image:null,flavor:'Donated $4.20 for the meme.'},
+  {id:105,name:'Sadge Sam',handle:'@sadgesam',team:'FEELS CITY',rarity:'UNCOMMON',series:'BASE',photoBg:'#001020',photoAcc:'#20a0cc',image:null,flavor:'It do be like that sometimes.'},
+  {id:106,name:'GigaChad Greg',handle:'@gigachadgreg',team:'ALPHA SQUAD',rarity:'LEGENDARY',series:'ICONS',photoBg:'#101018',photoAcc:'#c060ff',image:null,flavor:'Does not acknowledge cope.'},
+  {id:107,name:'Catjam Carl',handle:'@catjamcarl',team:'VIBE CHECK',rarity:'RARE',series:'BASE',photoBg:'#001a08',photoAcc:'#30dd70',image:null,flavor:'The cat is always in sync.'},
+  {id:108,name:'Copium Cole',handle:'@copiumcole',team:'COPE UNITED',rarity:'RARE',series:'BASE',photoBg:'#100818',photoAcc:'#8840cc',image:null,flavor:'Coping and seething simultaneously.'},
+  {id:109,name:'W Walter',handle:'@wwalter',team:'WIN FC',rarity:'RARE',series:'BASE',photoBg:'#081018',photoAcc:'#40a0ff',image:null,flavor:'No notes. Absolute W.'},
+  {id:110,name:'ResidentSleeper Rick',handle:'@rsleeperrick',team:'NAPPER FC',rarity:'COMMON',series:'BASE',photoBg:'#0a0a0a',photoAcc:'#606060',image:null,flavor:'5-hour meta discussion. Every day.'},
+  {id:111,name:'Jebaited Jake',handle:'@jebjakey',team:'TRICKSTER FC',rarity:'UNCOMMON',series:'BASE',photoBg:'#080818',photoAcc:'#5050cc',image:null,flavor:'Hook. Line. Sinker.'},
+  {id:112,name:'OMEGALUL Ozzy',handle:'@omegaozzy',team:'COMEDY CLUB',rarity:'EPIC',series:'LEGENDS',photoBg:'#1a0800',photoAcc:'#ff5500',image:null,flavor:'Laughed so hard the stream crashed.'},
+  {id:113,name:'BabyRage Barry',handle:'@babyrage',team:'TILT SQUAD',rarity:'UNCOMMON',series:'BASE',photoBg:'#1a0800',photoAcc:'#ff4422',image:null,flavor:'Console has not survived this rage.'},
+  {id:114,name:'5Head Phil',handle:'@5headphil',team:'GALAXY BRAIN',rarity:'RARE',series:'BASE',photoBg:'#130013',photoAcc:'#dd44ee',image:null,flavor:'300 IQ play incoming.'},
+  {id:115,name:'Omega Oracle',handle:'@omegaoracle',team:'ANCIENT ORDER',rarity:'LEGENDARY',series:'ICONS',photoBg:'#0a0a18',photoAcc:'#8888ff',image:null,flavor:'Before PogChamp, there was Omega.'},
+  {id:116,name:'RaidBoss Rex',handle:'@raidbossrex',team:'CHAOS SQUAD',rarity:'EPIC',series:'LEGENDS',photoBg:'#001020',photoAcc:'#00aaff',image:null,flavor:'1000 viewers. Chat explodes.'},
+  {id:117,name:'Peepo Pat',handle:'@peepo',team:'VIBE CHECK',rarity:'RARE',series:'BASE',photoBg:'#001808',photoAcc:'#44cc88',image:null,flavor:'Just wants to chill.'},
+  {id:118,name:'Mald Max',handle:'@maldmax',team:'TILT SQUAD',rarity:'COMMON',series:'BASE',photoBg:'#0a0500',photoAcc:'#cc6600',image:null,flavor:'Mad + bald. The classic combo.'},
+  {id:119,name:'Clipped Chris',handle:'@clippedchris',team:'CLIP CITY',rarity:'RARE',series:'BASE',photoBg:'#0a0a00',photoAcc:'#ffee00',image:null,flavor:'That\'s going on the subreddit.'},
+  {id:120,name:'Botted Brian',handle:'@bottedstats',team:'VIEW FARM FC',rarity:'COMMON',series:'BASE',photoBg:'#080818',photoAcc:'#5050aa',image:null,flavor:'2000 viewers. 12 chatters.'},
+];
 
 /* ===== AUTH / TOKEN ===== */
 let accessToken=null;
@@ -929,7 +969,7 @@ function copyOverlayUrl(){
   const token=localStorage.getItem('twitch_token');
   if(!token){err.style.display='block';err.textContent='No Twitch token found — please connect with Twitch first.';return;}
   // strip images from cards to keep URL manageable, embed as base64
-  const cardData=players.map(p=>({...p,image:null}));
+  const cardData=(activeSet==='premade'?PREMADE_SET:players).map(p=>({...p,image:null}));
   const cardsB64=btoa(unescape(encodeURIComponent(JSON.stringify(cardData))));
   // embed token + cards in hash — never sent to any server
   const url='https://dexteritycs.github.io/Card-Drop/overlay.html'
@@ -1241,8 +1281,9 @@ function pickRarity(){
 }
 
 function pickPlayer(rname){
-  const pool=players.filter(p=>p.rarity===rname);
-  if(!pool.length)return players[Math.floor(Math.random()*players.length)];
+  const pool=(activeSet==='premade'?PREMADE_SET:players).filter(p=>p.rarity===rname);
+  const all=activeSet==='premade'?PREMADE_SET:players;
+  if(!pool.length)return all[Math.floor(Math.random()*all.length)];
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
@@ -1447,9 +1488,9 @@ function renderPlayerList(){
     if(q&&!p.name.toLowerCase().includes(q)&&!(p.handle||'').toLowerCase().includes(q)&&!(p.team||'').toLowerCase().includes(q))return false;
     return true;
   });
-  document.getElementById('rosterCount').textContent=players.length;
-  const dlCount=document.getElementById('dlCardCount');
-  if(dlCount)dlCount.textContent=players.length;
+  const rc=document.getElementById('rosterCount');if(rc)rc.textContent=players.length;
+  const cc=document.getElementById('customCardCount');if(cc)cc.textContent=players.length;
+  const dl=document.getElementById('dlCardCount');if(dl)dl.textContent=activeSet==='premade'?PREMADE_SET.length:players.length;
   if(!filtered.length){el.innerHTML=`<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px;font-style:italic;">No cards match.</div>`;return;}
   el.innerHTML='';
   for(const p of filtered){
@@ -1465,6 +1506,27 @@ function renderPlayerList(){
 }
 
 function selectPlayer(id){selectedId=id;renderPlayerList();renderEditor();}
+
+function selectSet(set){
+  activeSet=set;
+  const premadeEl=document.getElementById('setOptPremade');
+  const customEl=document.getElementById('setOptCustom');
+  const hint=document.getElementById('setHint');
+  const editorBody=document.querySelector('.editor-body');
+  if(set==='premade'){
+    premadeEl.style.borderColor='var(--gold)';
+    customEl.style.borderColor='var(--border2)';
+    hint.textContent='Using the premade Twitch & Stream Culture set. Switch to Custom to edit your own cards.';
+    if(editorBody)editorBody.style.opacity='.4';
+    if(editorBody)editorBody.style.pointerEvents='none';
+  } else {
+    customEl.style.borderColor='var(--gold)';
+    premadeEl.style.borderColor='var(--border2)';
+    hint.textContent='Using your custom cards. Edit them below.';
+    if(editorBody)editorBody.style.opacity='1';
+    if(editorBody)editorBody.style.pointerEvents='';
+  }
+}
 
 function addPlayer(){
   const accs=['#ff40c0','#8080dd','#40a0ff','#50d820','#ff5500','#c060ff','#30dd70','#8840cc','#f0c040','#606060'];
@@ -1623,6 +1685,7 @@ function updateWeightTotal(){
 
 initTheme();
 renderPlayerList();
+selectSet('custom');
 init();
 </script>
 </body>
