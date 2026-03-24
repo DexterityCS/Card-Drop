@@ -302,6 +302,11 @@ select.f-input option{background:var(--bg3);}
         Save &amp; Connect with Twitch
       </button>
     </div>
+    <div style="margin-top:10px;">
+      <button onclick="saveAndDownloadOverlay()" style="width:100%;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;padding:11px;background:transparent;border:2px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.background='rgba(240,192,64,.1)'" onmouseout="this.style.background='transparent'">
+        ⬇ Save &amp; Download SLOBS Overlay
+      </button>
+    </div>
     <div class="auth-err" id="setupErr" style="display:none;margin-top:10px;"></div>
     <div class="auth-note" style="margin-top:16px;">
       Only requests <code>channel:read:redemptions</code> — read-only access.<br>
@@ -313,19 +318,14 @@ select.f-input option{background:var(--bg3);}
   <div id="connectCard" class="auth-card" style="max-width:440px;display:none;">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:6px;color:var(--gold);margin-bottom:4px;">Card Drop</div>
     <div class="auth-sub">Connect your Twitch account to listen for<br><b style="color:var(--text);">Channel Point</b> redeems and trigger live card pulls.</div>
-    <div id="connectSummary" style="background:var(--bg3);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--text2);text-align:left;line-height:1.8;"></div>
     <button class="auth-btn" onclick="startAuth()" style="width:100%;justify-content:center;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M11.64 5.93h1.43v4.28h-1.43m3.93-4.28H17v4.28h-1.43M7 2L3.43 5.57v12.86h4.28V22l3.58-3.57h2.85L20.57 12V2m-1.43 9.29l-2.85 2.85h-2.86l-2.5 2.5v-2.5H7.71V3.43h11.43z"/></svg>
       Connect with Twitch
     </button>
-    <button onclick="downloadOverlay()" style="margin-top:10px;width:100%;font-family:'Bebas Neue',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;padding:11px;background:transparent;border:2px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.background='rgba(240,192,64,.1)'" onmouseout="this.style.background='transparent'">
-      ⬇ Download SLOBS Overlay
-    </button>
     <button onclick="showSetupPane()" style="margin-top:8px;width:100%;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;padding:8px;background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text2);cursor:pointer;transition:all .2s;">Edit Settings</button>
     <div class="auth-err" id="authErr" style="display:none;margin-top:10px;"></div>
     <div class="auth-note" style="margin-top:14px;">
-      Only requests <code>channel:read:redemptions</code> — read-only access.<br>
-      <span style="color:var(--text2);">The overlay file connects to Twitch directly — just add it as a Browser Source in SLOBS.</span>
+      Only requests <code>channel:read:redemptions</code> — read-only access.
     </div>
   </div>
 
@@ -496,6 +496,20 @@ select.f-input option{background:var(--bg3);}
         <div class="empty-state" style="margin-top:5rem;">Select a card to edit, or click + Add / Bulk to create.</div>
       </div>
     </div>
+
+    <!-- DOWNLOAD SECTION -->
+    <div style="padding:20px 24px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;color:var(--text);margin-bottom:3px;">Ready to go live?</div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.5;">Download your overlay with all <span id="dlCardCount" style="color:var(--gold);font-weight:700;">0</span> cards baked in. Add it as a Browser Source in SLOBS.</div>
+        </div>
+        <button onclick="downloadOverlay()" style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:3px;padding:12px 28px;background:var(--gold);border:none;border-radius:8px;color:#111;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--gold2)'" onmouseout="this.style.background='var(--gold)'">
+          ⬇ Download Overlay
+        </button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -601,20 +615,16 @@ function logout(){
 }
 
 function showConnectPane(){
-  const c=getConfig();
-  document.getElementById('connectSummary').innerHTML=
-    `<b style="color:var(--text);">Channel:</b> ${c.channelName}<br>`+
-    `<b style="color:var(--text);">Reward:</b> ${c.rewardName||'Card Drop'}`;
+  document.getElementById('connectSummary').style.display='none';
   document.getElementById('setupCard').style.display='none';
   document.getElementById('connectCard').style.display='block';
   showAuthPane();
 }
 
 function showSetupPane(){
-  const c=getConfig();
-  document.getElementById('setupClientId').value=c.clientId;
-  document.getElementById('setupChannel').value=c.channelName;
-  document.getElementById('setupReward').value=c.rewardName||'Card Drop';
+  document.getElementById('setupClientId').value='';
+  document.getElementById('setupChannel').value='';
+  document.getElementById('setupReward').value='';
   document.getElementById('setupCard').style.display='block';
   document.getElementById('connectCard').style.display='none';
   document.getElementById('setupErr').style.display='none';
@@ -901,6 +911,18 @@ else{document.getElementById('authPrompt').style.display='flex';}
   a.download='card-drop-overlay.html';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function saveAndDownloadOverlay(){
+  const clientId=document.getElementById('setupClientId').value.trim();
+  const channel=document.getElementById('setupChannel').value.trim().toLowerCase();
+  const reward=document.getElementById('setupReward').value.trim()||'Card Drop';
+  const err=document.getElementById('setupErr');
+  if(!clientId){err.style.display='block';err.textContent='Client ID is required to generate the overlay.';return;}
+  if(!channel){err.style.display='block';err.textContent='Twitch username is required to generate the overlay.';return;}
+  err.style.display='none';
+  saveConfig({clientId,channelName:channel,rewardName:reward});
+  downloadOverlay();
 }
 
 function saveSetupAndConnect(){
@@ -1400,6 +1422,8 @@ function renderPlayerList(){
     return true;
   });
   document.getElementById('rosterCount').textContent=players.length;
+  const dlCount=document.getElementById('dlCardCount');
+  if(dlCount)dlCount.textContent=players.length;
   if(!filtered.length){el.innerHTML=`<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px;font-style:italic;">No cards match.</div>`;return;}
   el.innerHTML='';
   for(const p of filtered){
