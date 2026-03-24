@@ -498,17 +498,19 @@ select.f-input option{background:var(--bg3);}
 
   </div>
 
-  <!-- DOWNLOAD SECTION — pinned to bottom of editor pane, always visible -->
+  <!-- OVERLAY URL SECTION — pinned to bottom of editor pane, always visible -->
   <div style="padding:16px 24px;border-top:2px solid var(--gold);background:var(--bg2);flex-shrink:0;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
       <div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;color:var(--text);margin-bottom:3px;">Ready to go live?</div>
-        <div style="font-size:12px;color:var(--text3);line-height:1.5;">Download your overlay with all <span id="dlCardCount" style="color:var(--gold);font-weight:700;">0</span> cards baked in. Add it as a Browser Source in SLOBS.</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.5;">Copy your overlay URL with all <span id="dlCardCount" style="color:var(--gold);font-weight:700;">0</span> cards. Add it as a Browser Source in SLOBS at 1920×1080.</div>
       </div>
-      <button onclick="downloadOverlay()" style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:3px;padding:12px 28px;background:var(--gold);border:none;border-radius:8px;color:#111;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;" onmouseover="this.style.background='var(--gold2)'" onmouseout="this.style.background='var(--gold)'">
-        ⬇ Download Overlay
+      <button onclick="copyOverlayUrl()" id="copyUrlBtn" style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;padding:12px 24px;background:var(--gold);border:none;border-radius:8px;color:#111;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;" onmouseover="this.style.background='var(--gold2)'" onmouseout="this.style.background='var(--gold)'">
+        Copy Overlay URL
       </button>
     </div>
+    <div id="copyConfirm" style="font-size:11px;color:#4ad48a;font-weight:700;letter-spacing:1px;margin-top:8px;display:none;">✓ Copied! Paste into SLOBS Browser Source.</div>
+    <div id="copyErr" style="font-size:11px;color:#ff8888;font-weight:700;margin-top:8px;display:none;"></div>
   </div>
 
 </div>
@@ -917,16 +919,26 @@ else{document.getElementById('authPrompt').style.display='flex';}
   URL.revokeObjectURL(a.href);
 }
 
-function saveAndDownloadOverlay(){
-  const clientId=document.getElementById('setupClientId').value.trim();
-  const channel=document.getElementById('setupChannel').value.trim().toLowerCase();
-  const reward=document.getElementById('setupReward').value.trim()||'Card Drop';
-  const err=document.getElementById('setupErr');
-  if(!clientId){err.style.display='block';err.textContent='Client ID is required to generate the overlay.';return;}
-  if(!channel){err.style.display='block';err.textContent='Twitch username is required to generate the overlay.';return;}
-  err.style.display='none';
-  saveConfig({clientId,channelName:channel,rewardName:reward});
-  downloadOverlay();
+function copyOverlayUrl(){
+  const c=getConfig();
+  const err=document.getElementById('copyErr');
+  const confirm=document.getElementById('copyConfirm');
+  if(!c.clientId){err.style.display='block';err.textContent='Go back to setup and connect with Twitch first.';return;}
+  if(!c.channelName){err.style.display='block';err.textContent='No channel name saved — go back to setup.';return;}
+  // save current cards to localStorage so overlay.html can read them
+  localStorage.setItem('card_drop_players',JSON.stringify(players));
+  const url='https://dexteritycs.github.io/Card-Drop/overlay.html'
+    +'?cid='+encodeURIComponent(c.clientId)
+    +'&ch='+encodeURIComponent(c.channelName)
+    +'&rw='+encodeURIComponent(c.rewardName||'Card Drop');
+  navigator.clipboard.writeText(url).then(()=>{
+    err.style.display='none';
+    confirm.style.display='block';
+    setTimeout(()=>confirm.style.display='none',4000);
+  }).catch(()=>{
+    err.style.display='block';
+    err.textContent='Could not copy automatically. URL: '+url;
+  });
 }
 
 function saveSetupAndConnect(){
@@ -1508,7 +1520,11 @@ function handleImg(e){
   r.readAsDataURL(file);
 }
 function clearImg(){const p=players.find(x=>x.id===selectedId);if(!p)return;p.image=null;renderEditor();}
-function savePlayer(){renderPlayerList();const ok=document.getElementById('saveOk');ok.style.display='block';setTimeout(()=>ok.style.display='none',2000);}
+function savePlayer(){
+  localStorage.setItem('card_drop_players',JSON.stringify(players));
+  renderPlayerList();
+  const ok=document.getElementById('saveOk');ok.style.display='block';setTimeout(()=>ok.style.display='none',2000);
+}
 
 function showBulkImport(){
   selectedId=null;renderPlayerList();
