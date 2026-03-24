@@ -117,15 +117,24 @@ const CHANNEL    =params.get('ch')  ||localStorage.getItem('cfg_channel_name')||
 const REWARD     =params.get('rw')  ||localStorage.getItem('cfg_reward_name')||'Card Drop';
 const DISPLAY_SEC=parseInt(params.get('sec')||'12',10);
 
-// extract token from URL hash if present (embedded by config page on first copy)
+// extract token + cards from URL hash if present (embedded by config page on copy)
 (function(){
   const hash=window.location.hash;
   if(!hash)return;
   const hp=new URLSearchParams(hash.slice(1));
   const t=hp.get('t');
+  const d=hp.get('d');
   if(t){
     localStorage.setItem('twitch_token',t);
-    // clean the token out of the URL so it's not visible in SLOBS
+  }
+  if(d){
+    try{
+      const decoded=JSON.parse(decodeURIComponent(escape(atob(d))));
+      localStorage.setItem('card_drop_players',JSON.stringify(decoded));
+    }catch(e){}
+  }
+  if(t||d){
+    // clean token+cards out of URL
     window.history.replaceState(null,'',window.location.pathname+window.location.search);
   }
 })();
