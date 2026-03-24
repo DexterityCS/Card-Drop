@@ -113,28 +113,26 @@ const CHANNEL    =params.get('ch')  ||localStorage.getItem('cfg_channel_name')||
 const REWARD     =params.get('rw')  ||localStorage.getItem('cfg_reward_name')||'Card Drop';
 const DISPLAY_SEC=parseInt(params.get('sec')||'12',10);
 
+// extract token from URL hash if present (embedded by config page on first copy)
+(function(){
+  const hash=window.location.hash;
+  if(!hash)return;
+  const hp=new URLSearchParams(hash.slice(1));
+  const t=hp.get('t');
+  if(t){
+    localStorage.setItem('twitch_token',t);
+    // clean the token out of the URL so it's not visible in SLOBS
+    window.history.replaceState(null,'',window.location.pathname+window.location.search);
+  }
+})();
+
 let PLAYERS=[];
 try{const raw=localStorage.getItem('card_drop_players');if(raw)PLAYERS=JSON.parse(raw);}catch(e){}
 
 let token=localStorage.getItem('twitch_token');
 let broadcasterId=null,esSocket=null,hideTimer=null;
 
-function showErr(msg){const el=document.getElementById('errMsg');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',8000);}
-
-function handleCallback(){
-  const hash=window.location.hash;if(!hash)return false;
-  const p=new URLSearchParams(hash.replace('#','?').slice(1));
-  const t=p.get('access_token');if(!t)return false;
-  token=t;localStorage.setItem('twitch_token',t);
-  window.history.replaceState(null,'',window.location.pathname+window.location.search);
-  return true;
-}
-
-function doAuth(){
-  if(!CLIENT_ID){showErr('Missing Client ID — regenerate overlay URL from the config page.');return;}
-  const redirectUri=window.location.origin+window.location.pathname+window.location.search;
-  window.location.href='https://id.twitch.tv/oauth2/authorize?client_id='+CLIENT_ID+'&redirect_uri='+encodeURIComponent(redirectUri)+'&response_type=token&scope=channel:read:redemptions&force_verify=false';
-}
+function showErr(msg){const el=document.getElementById('errMsg');el.textContent=msg;el.style.display='block';}
 
 async function fetchBroadcasterId(){
   const r=await fetch('https://api.twitch.tv/helix/users?login='+CHANNEL,{headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token}});
@@ -224,14 +222,13 @@ function triggerCard(username){
 }
 
 async function init(){
-  if(handleCallback()){location.reload();return;}
-  if(!CLIENT_ID||!CHANNEL){showErr('Invalid overlay URL — go back to the config page and copy your overlay URL.');return;}
-  if(!token){doAuth();return;}
+  if(!CLIENT_ID||!CHANNEL){showErr('Invalid overlay URL — go back to the config page and copy a fresh overlay URL.');return;}
+  if(!token){showErr('No auth token — go back to the config page, reconnect with Twitch, then copy a fresh overlay URL.');return;}
   try{
     broadcasterId=await fetchBroadcasterId();
     openES();
   }catch(e){
-    if(e.message==='auth_fail'){localStorage.removeItem('twitch_token');doAuth();}
+    if(e.message==='auth_fail')showErr('Token expired — go back to the config page, reconnect with Twitch, and copy a fresh overlay URL.');
     else showErr('Could not find channel: '+CHANNEL);
   }
 }

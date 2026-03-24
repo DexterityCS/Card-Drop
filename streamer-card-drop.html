@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stream Card Drop</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   CONFIGURATION — edit the 3 lines below then upload to GitHub
+   ============================================================ */
+/*
+  CLIENT_ID   → your Twitch app Client ID from dev.twitch.tv
+  REDIRECT    → your GitHub Pages URL  e.g. https://yourname.github.io/yourrepo
+  CHANNEL     → your Twitch username (lowercase)
+  REWARD_NAME → exact name of your Channel Point reward
+*/
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c0c10;--bg2:#13131a;--bg3:#1a1a24;--bg4:#22222e;
+  --text:#f0f0f8;--text2:#9090b0;--text3:#55556a;
+  --border:#252535;--border2:#353550;
+  --gold:#f0c040;--gold2:#ffd966;
+  --common:#9ca3b0;--uncommon:#4ad48a;--rare:#50a8f8;--epic:#c080fc;--legendary:#f0c040;
+  --twitch:#9146ff;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;overflow:hidden;}
+body{display:flex;flex-direction:column;}
+
+/* ── NAV ── */
+.nav{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;align-items:center;}
+.tab-btn{padding:13px 20px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:transparent;border:none;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab-btn:hover{color:var(--text2);}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+.nav-right{margin-left:auto;padding:0 16px;display:flex;align-items:center;gap:10px;}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:#444;transition:background .3s;flex-shrink:0;}
+.conn-dot.connecting{background:#f0c040;animation:pulse 1s infinite;}
+.conn-dot.connected{background:#4ad48a;}
+.conn-dot.error{background:#ff6060;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.conn-label{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text3);}
+.obs-btn{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;padding:5px 12px;background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text2);cursor:pointer;transition:all .2s;}
+.obs-btn:hover{border-color:var(--text2);color:var(--text);}
+.obs-btn.active{border-color:var(--twitch);color:var(--twitch);}
+
+/* ── TABS ── */
+.tab-pane{display:none;flex:1;overflow:hidden;}
+.tab-pane.active{display:flex;}
+
+/* ── AUTH SCREEN ── */
+#pane-auth{flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px;}
+.auth-card{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:40px;max-width:480px;width:100%;text-align:center;}
+.auth-logo{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:6px;color:var(--gold);margin-bottom:8px;}
+.auth-sub{font-size:14px;color:var(--text2);margin-bottom:28px;line-height:1.5;}
+.auth-btn{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:4px;padding:14px 36px;background:var(--twitch);border:none;border-radius:8px;color:#fff;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:10px;}
+.auth-btn:hover{background:#7c35e0;}
+.auth-err{font-size:12px;color:#ff8888;margin-top:16px;display:none;}
+.auth-note{font-size:11px;color:var(--text3);margin-top:20px;line-height:1.6;}
+.config-warning{background:#2a1a00;border:1px solid #6a4000;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:12px;color:#ffaa44;line-height:1.6;text-align:left;}
+.config-warning b{color:#ffc060;}
+
+/* ── WIDGET PANE ── */
+#pane-widget{flex-direction:row;}
+.w-left{width:310px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px 14px;border-right:1px solid var(--border);overflow-y:auto;background:var(--bg2);}
+.w-right{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+.pack-label{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:var(--text3);}
+.pack-label span{color:var(--twitch);}
+
+/* ── CARD ── */
+.card-scene{width:234px;height:352px;perspective:1200px;cursor:pointer;flex-shrink:0;}
+.card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.4,0,.2,1);}
+.card-inner.flipped{transform:rotateY(180deg);}
+.card-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:12px;overflow:hidden;}
+
+.card-back{background:linear-gradient(145deg,#0d0d1c,#1a1a30);border:2px solid #2a2a50;}
+.back-inner{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;}
+.back-stripe{position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,.015) 8px,rgba(255,255,255,.015) 9px);}
+.back-diamond{width:56px;height:56px;border:2px solid #2a2a55;transform:rotate(45deg);position:relative;z-index:1;}
+.back-diamond-in{width:36px;height:36px;background:#1a1a38;border:1px solid #2a2a50;position:absolute;top:50%;left:50%;margin:-18px 0 0 -18px;}
+.back-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:5px;color:#3a3a70;z-index:1;}
+.back-sub{font-size:9px;letter-spacing:3px;color:#2a2a50;text-transform:uppercase;z-index:1;}
+
+.card-front{transform:rotateY(180deg);display:flex;flex-direction:column;position:relative;border:2px solid var(--card-color,#9ca3b0);}
+.card-front.lglow{animation:lglow 2s ease-in-out infinite;}
+.card-front.eglow{animation:eglow 3s ease-in-out infinite;}
+@keyframes lglow{0%,100%{box-shadow:0 0 10px 2px #f0c04055;}50%{box-shadow:0 0 24px 6px #f0c04077;}}
+@keyframes eglow{0%,100%{box-shadow:0 0 8px 2px #c080fc33;}50%{box-shadow:0 0 18px 4px #c080fc55;}}
+.holo-layer{position:absolute;inset:0;pointer-events:none;opacity:0;z-index:10;border-radius:10px;mix-blend-mode:screen;}
+.card-inner.flipped .holo-layer{opacity:1;animation:holoshift 4s linear infinite;}
+.card-inner.flipped.legendary .holo-layer{animation-duration:2s;}
+.card-inner.flipped.epic .holo-layer{opacity:.65;}
+@keyframes holoshift{
+  0%  {background:linear-gradient(105deg,rgba(255,50,50,.07) 0%,rgba(255,180,0,.07) 20%,rgba(80,255,80,.07) 40%,rgba(0,180,255,.07) 60%,rgba(180,0,255,.07) 80%,transparent 100%);filter:hue-rotate(0deg);}
+  50% {filter:hue-rotate(180deg);}
+  100%{background:linear-gradient(105deg,rgba(255,50,50,.07) 0%,rgba(255,180,0,.07) 20%,rgba(80,255,80,.07) 40%,rgba(0,180,255,.07) 60%,rgba(180,0,255,.07) 80%,transparent 100%);filter:hue-rotate(360deg);}
+}
+.card-top{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:var(--card-band,#1a1a2e);flex-shrink:0;z-index:2;position:relative;}
+.card-num{font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:1px;}
+.card-series-lbl{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.35);}
+.card-rarity-pill{font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--card-color,#9ca3b0);background:rgba(0,0,0,.4);padding:2px 6px;border-radius:3px;}
+.card-photo{flex:1;position:relative;overflow:hidden;background:var(--card-photo-bg,#0d1520);}
+.card-photo canvas,.card-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+.card-name-banner{position:absolute;bottom:0;left:0;right:0;padding:32px 10px 8px;background:linear-gradient(to top,rgba(0,0,0,.92),transparent);z-index:3;}
+.card-player-name{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:#fff;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,.8);}
+.card-handle{font-size:11px;font-weight:700;color:var(--card-color,#9ca3b0);letter-spacing:2px;margin-top:1px;}
+.card-bottom{height:26px;background:var(--card-accent,#111);display:flex;align-items:center;justify-content:space-between;padding:0 10px;flex-shrink:0;z-index:2;}
+.card-team{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.3);}
+.card-year{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,.2);}
+
+/* ── WIDGET CONTROLS ── */
+.rdots{display:flex;gap:6px;justify-content:center;}
+.rdot{width:7px;height:7px;border-radius:50%;opacity:.2;transition:opacity .3s,transform .3s;}
+.rdot.on{opacity:1;transform:scale(1.5);}
+.notif{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text3);min-height:18px;text-align:center;transition:color .3s;padding:0 4px;}
+.pull-btn{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:4px;padding:11px 0;background:transparent;border:2px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;width:100%;transition:all .2s;}
+.pull-btn:hover{background:rgba(240,192,64,.1);color:var(--gold2);}
+.pull-btn:disabled{opacity:.3;cursor:not-allowed;}
+.flip-hint{font-size:10px;color:var(--text3);font-style:italic;min-height:14px;text-align:center;letter-spacing:1px;}
+.test-pull-btn{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;padding:6px 0;background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text3);cursor:pointer;width:100%;transition:all .2s;}
+.test-pull-btn:hover{border-color:var(--text2);color:var(--text2);}
+
+/* ── HISTORY ── */
+.history-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.h-head{padding:14px 18px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.h-top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.h-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:4px;color:var(--text);}
+.clear-btn{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text2);background:transparent;border:1px solid var(--border2);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;transition:all .2s;}
+.clear-btn:hover{color:var(--text);border-color:var(--text2);}
+.h-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.hstat{background:var(--bg3);border-radius:8px;padding:10px;text-align:center;}
+.hstat-val{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);line-height:1;}
+.hstat-lbl{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-top:3px;}
+.rbd{display:flex;gap:5px;flex-wrap:wrap;padding:8px 18px;flex-shrink:0;border-bottom:1px solid var(--border);}
+.rb-pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;letter-spacing:1px;text-transform:uppercase;}
+.h-list{flex:1;overflow-y:auto;padding:8px 18px;display:flex;flex-direction:column;gap:5px;}
+.h-list::-webkit-scrollbar{width:3px;}
+.h-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.pull-row{display:grid;grid-template-columns:50px 1fr auto;gap:10px;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:7px;border-left:3px solid var(--rc,#9ca3b0);animation:rowslide .35s ease;}
+@keyframes rowslide{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:none;}}
+.pull-mini{width:38px;height:52px;border-radius:4px;border:1.5px solid var(--rc,#9ca3b0);background:var(--bg4);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.pull-mini-top{height:9px;opacity:.6;flex-shrink:0;}
+.pull-mini-body{flex:1;}
+.pull-player{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--text);line-height:1;}
+.pull-rarity-lbl{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--rc,#9ca3b0);text-transform:uppercase;}
+.pull-user-lbl{font-size:11px;color:var(--text2);margin-top:1px;}
+.pull-time{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text3);text-align:right;white-space:nowrap;}
+.empty-state{text-align:center;padding:3rem;color:var(--text3);font-size:13px;font-style:italic;}
+
+/* ── SLOBS OVERLAY MODE ── */
+body.slobs-mode{background:transparent!important;overflow:visible;}
+body.slobs-mode .nav{display:none!important;}
+body.slobs-mode .w-right{display:none!important;}
+body.slobs-mode #pane-widget{background:transparent;height:100vh;}
+body.slobs-mode .w-left{width:100%;border:none;background:transparent;padding:0;justify-content:flex-start;gap:0;overflow:visible;}
+body.slobs-mode .rdots,body.slobs-mode .notif,body.slobs-mode .pull-btn,body.slobs-mode .test-pull-btn,body.slobs-mode .flip-hint,body.slobs-mode .pack-label{display:none!important;}
+body.slobs-mode .card-scene{width:260px;height:390px;margin:0;}
+#exitOverlayBtn{display:none;position:fixed;top:10px;left:10px;z-index:9999;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;padding:6px 14px;background:rgba(20,20,30,.9);border:1px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;}
+body.slobs-mode #exitOverlayBtn{display:block;}
+
+/* Overlay wrapper — positions card on screen, hidden by default */
+.overlay-wrap{
+  position:fixed;bottom:40px;right:40px;
+  transform:translateX(360px);
+  opacity:0;
+  transition:transform .6s cubic-bezier(.22,.68,0,1.2), opacity .5s ease;
+  pointer-events:none;
+  z-index:9999;
+}
+body.slobs-mode .overlay-wrap{display:block;}
+.overlay-wrap.visible{
+  transform:translateX(0);
+  opacity:1;
+}
+.overlay-wrap.hiding{
+  transform:translateX(360px);
+  opacity:0;
+  transition:transform .5s cubic-bezier(.4,0,1,1), opacity .4s ease;
+}
+
+/* Redeemer banner shown below card in overlay */
+.overlay-banner{
+  margin-top:10px;
+  text-align:center;
+  animation:bannerIn .4s ease .3s both;
+}
+@keyframes bannerIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.overlay-user{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.9);}
+.overlay-rarity{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;text-shadow:0 1px 6px rgba(0,0,0,.9);}
+
+/* Timer bar beneath card */
+.overlay-timer{height:3px;background:rgba(255,255,255,.15);border-radius:2px;margin-top:8px;overflow:hidden;}
+.overlay-timer-fill{height:100%;background:var(--gold);transform-origin:left;transition:transform linear;}
+
+/* Position selector in widget controls */
+.pos-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+.pos-btn{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 8px;background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--text3);cursor:pointer;transition:all .15s;}
+.pos-btn:hover{border-color:var(--text2);color:var(--text2);}
+.pos-btn.active{border-color:var(--gold);color:var(--gold);}
+.dur-row{display:flex;align-items:center;gap:8px;justify-content:center;}
+.dur-lbl{font-size:11px;color:var(--text3);}
+.dur-val{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--gold);min-width:30px;}
+
+/* ── EDITOR PANE ── */
+#pane-editor{flex-direction:column;overflow:hidden;}
+.editor-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;}
+.editor-scroll::-webkit-scrollbar{width:4px;}
+.editor-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.theme-sec{padding:18px 22px;border-bottom:1px solid var(--border);}
+.sec-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;color:var(--text2);margin-bottom:12px;}
+.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px;margin-bottom:14px;}
+.color-row{display:flex;align-items:center;gap:8px;}
+.swatch{width:28px;height:28px;border-radius:5px;border:1px solid var(--border2);cursor:pointer;position:relative;overflow:hidden;flex-shrink:0;}
+.swatch input[type=color]{position:absolute;inset:-4px;opacity:0;cursor:pointer;width:calc(100%+8px);height:calc(100%+8px);}
+.swatch-lbl{font-size:12px;font-weight:600;color:var(--text2);}
+.weight-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+.weight-lbl{font-size:12px;font-weight:700;width:95px;flex-shrink:0;}
+.weight-slider{flex:1;accent-color:var(--gold);}
+.weight-val{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text2);width:28px;text-align:right;}
+.apply-btn{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:3px;padding:9px 22px;background:transparent;border:2px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;transition:all .2s;}
+.apply-btn:hover{background:rgba(240,192,64,.1);}
+.editor-body{flex:1;display:flex;overflow:hidden;min-height:500px;}
+.sidebar{width:230px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--bg2);}
+.sidebar-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.sidebar-title{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);}
+.btn-group{display:flex;gap:5px;}
+.add-btn{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;padding:5px 10px;background:var(--gold);border:none;border-radius:5px;color:#111;cursor:pointer;transition:all .2s;}
+.add-btn:hover{background:var(--gold2);}
+.bulk-btn{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;padding:5px 10px;background:transparent;border:1px solid var(--gold);border-radius:5px;color:var(--gold);cursor:pointer;transition:all .2s;}
+.bulk-btn:hover{background:rgba(240,192,64,.1);}
+.sidebar-filters{padding:6px 8px;display:flex;flex-direction:column;gap:5px;}
+.f-input{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:6px 9px;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;width:100%;transition:border-color .2s;}
+.f-input:focus{outline:none;border-color:var(--gold);}
+select.f-input option{background:var(--bg3);}
+.player-list{flex:1;overflow-y:auto;padding:6px;}
+.player-list::-webkit-scrollbar{width:3px;}
+.player-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.p-item{padding:7px 9px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .15s;margin-bottom:2px;}
+.p-item:hover{background:var(--bg3);}
+.p-item.selected{background:var(--bg3);border:1px solid var(--border2);}
+.p-name{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.p-sub{font-size:10px;font-weight:600;letter-spacing:1px;color:var(--text3);}
+.p-del{font-size:13px;color:var(--text3);cursor:pointer;padding:0 3px;flex-shrink:0;}
+.p-del:hover{color:#ff7070;}
+.editor-main{flex:1;overflow-y:auto;padding:22px;}
+.editor-main::-webkit-scrollbar{width:4px;}
+.editor-main::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.e-sec{margin-bottom:24px;}
+.e-sec h3{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:11px;padding-bottom:7px;border-bottom:1px solid var(--border);}
+.f-row{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:10px;margin-bottom:8px;}
+.f-lbl{font-size:12px;font-weight:600;color:var(--text2);}
+.img-drop{border:2px dashed var(--border2);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:border-color .2s;position:relative;overflow:hidden;}
+.img-drop:hover{border-color:var(--gold);}
+.img-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.img-drop-txt{font-size:12px;color:var(--text3);font-style:italic;}
+.save-btn{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;padding:10px 26px;background:var(--gold);border:none;border-radius:6px;color:#111;cursor:pointer;transition:all .2s;}
+.save-btn:hover{background:var(--gold2);}
+.save-ok{font-size:11px;font-weight:700;letter-spacing:2px;color:#4ad48a;display:none;margin-top:8px;text-transform:uppercase;}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button class="tab-btn active" id="btn-widget" onclick="switchTab('widget')">Live Widget</button>
+  <button class="tab-btn" id="btn-editor" onclick="switchTab('editor')">Card Editor</button>
+  <div class="nav-right">
+    <div class="conn-dot" id="connDot"></div>
+    <span class="conn-label" id="connLabel">Not connected</span>
+    <button class="obs-btn" id="obsBtn" onclick="toggleObs()" title="Toggle SLOBS overlay mode">SLOBS Mode</button>
+    <button class="obs-btn" onclick="logout()" id="logoutBtn" style="display:none;">Log Out</button>
+  </div>
+</div>
+
+<button id="exitOverlayBtn" onclick="toggleObs()">✕ Exit Preview</button>
+
+<!-- AUTH / SETUP -->
+<div id="pane-auth" class="tab-pane active" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;overflow-y:auto;">
+
+  <!-- SETUP FORM (shown when not configured) -->
+  <div id="setupCard" class="auth-card" style="max-width:520px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:6px;color:var(--gold);margin-bottom:4px;">Card Drop Setup</div>
+    <div class="auth-sub" style="margin-bottom:20px;">Enter your Twitch app details below. Everything is saved in your browser — nothing is sent to any server.</div>
+
+    <div style="text-align:left;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Twitch App Client ID <span style="color:#ff8888;">*</span></div>
+        <input class="f-input" id="setupClientId" placeholder="e.g. abc123xyz456def789" style="font-size:13px;padding:9px 12px;">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Get this from <a href="https://dev.twitch.tv/console/apps" target="_blank" style="color:var(--twitch);">dev.twitch.tv/console/apps</a> → your app → Manage</div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Your Twitch Username <span style="color:#ff8888;">*</span></div>
+        <input class="f-input" id="setupChannel" placeholder="e.g. yourstreamername" style="font-size:13px;padding:9px 12px;">
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Channel Point Reward Name</div>
+        <input class="f-input" id="setupReward" placeholder="Card Drop" style="font-size:13px;padding:9px 12px;">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Exact name of the Channel Point reward viewers redeem. Default: Card Drop</div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="auth-btn" onclick="saveSetupAndConnect()" style="flex:1;justify-content:center;">
+        Save &amp; Connect with Twitch
+      </button>
+    </div>
+    <div class="auth-err" id="setupErr" style="display:none;margin-top:10px;"></div>
+    <div class="auth-note" style="margin-top:16px;">
+      Only requests <code>channel:read:redemptions</code> — read-only access.<br>
+      Your settings and token are stored in this browser only.
+    </div>
+  </div>
+
+  <!-- CONNECT SCREEN (shown when already configured) -->
+  <div id="connectCard" class="auth-card" style="max-width:440px;display:none;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:6px;color:var(--gold);margin-bottom:4px;">Card Drop</div>
+    <div class="auth-sub">Connect your Twitch account to listen for<br><b style="color:var(--text);">Channel Point</b> redeems and trigger live card pulls.</div>
+    <button class="auth-btn" onclick="startAuth()" style="width:100%;justify-content:center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M11.64 5.93h1.43v4.28h-1.43m3.93-4.28H17v4.28h-1.43M7 2L3.43 5.57v12.86h4.28V22l3.58-3.57h2.85L20.57 12V2m-1.43 9.29l-2.85 2.85h-2.86l-2.5 2.5v-2.5H7.71V3.43h11.43z"/></svg>
+      Connect with Twitch
+    </button>
+    <button onclick="showSetupPane()" style="margin-top:8px;width:100%;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;padding:8px;background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text2);cursor:pointer;transition:all .2s;">Edit Settings</button>
+    <div class="auth-err" id="authErr" style="display:none;margin-top:10px;"></div>
+    <div class="auth-note" style="margin-top:14px;">
+      Only requests <code>channel:read:redemptions</code> — read-only access.
+    </div>
+  </div>
+
+</div>
+
+<!-- WIDGET -->
+<div id="pane-widget" class="tab-pane">
+  <div class="w-left">
+    <div class="pack-label" id="packLabel">⚡ <span>Channel Points</span> Card Drop ⚡</div>
+
+    <div class="card-scene" onclick="flipCard()">
+      <div class="card-inner" id="cardInner">
+        <div class="card-face card-back">
+          <div class="back-inner">
+            <div class="back-stripe"></div>
+            <div style="position:relative;width:56px;height:56px;z-index:1;">
+              <div class="back-diamond"><div class="back-diamond-in"></div></div>
+            </div>
+            <div class="back-logo">STREAM</div>
+            <div class="back-sub">Card Series</div>
+          </div>
+        </div>
+        <div class="card-face card-front" id="cardFront">
+          <div class="holo-layer"></div>
+          <div class="card-top" id="cTop">
+            <div class="card-num" id="cNum">#001</div>
+            <div class="card-series-lbl" id="cSeries">STREAM SERIES</div>
+            <div class="card-rarity-pill" id="cRarityPill">COMMON</div>
+          </div>
+          <div class="card-photo" id="cPhoto">
+            <canvas id="artCanvas" width="230" height="272"></canvas>
+            <div class="card-name-banner">
+              <div class="card-player-name" id="cPlayerName">???</div>
+              <div class="card-handle" id="cHandle">@handle</div>
+            </div>
+          </div>
+          <div class="card-bottom" id="cBottom">
+            <div class="card-team" id="cTeam">TEAM NAME</div>
+            <div class="card-year">2025</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rdots">
+      <div class="rdot" style="background:var(--common)" id="d0"></div>
+      <div class="rdot" style="background:var(--uncommon)" id="d1"></div>
+      <div class="rdot" style="background:var(--rare)" id="d2"></div>
+      <div class="rdot" style="background:var(--epic)" id="d3"></div>
+      <div class="rdot" style="background:var(--legendary)" id="d4"></div>
+    </div>
+    <div class="notif" id="notif">Waiting for channel point redeem...</div>
+    <button class="pull-btn" id="pullBtn" onclick="triggerPull(null)" disabled>OPEN PACK</button>
+    <button class="test-pull-btn" onclick="triggerPull('TestViewer')">Test Pull (no Twitch needed)</button>
+    <div class="flip-hint" id="flipHint"></div>
+
+    <div style="width:100%;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px;" id="overlayControls">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase;text-align:center;">Overlay Position</div>
+      <div class="pos-row">
+        <button class="pos-btn" onclick="setPos('top-left')">↖ Top Left</button>
+        <button class="pos-btn" onclick="setPos('top-right')">↗ Top Right</button>
+        <button class="pos-btn" onclick="setPos('bottom-left')">↙ Bot Left</button>
+        <button class="pos-btn active" onclick="setPos('bottom-right')">↘ Bot Right</button>
+      </div>
+      <div class="dur-row">
+        <div class="dur-lbl">Show for</div>
+        <input type="range" min="5" max="30" step="1" value="12" style="flex:1;accent-color:var(--gold);" oninput="overlayDuration=+this.value;document.getElementById('durVal').textContent=this.value+'s'">
+        <div class="dur-val" id="durVal">12s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY — rendered on top of everything in SLOBS mode -->
+  <div class="overlay-wrap" id="overlayWrap" style="display:none;">
+    <div class="card-scene" id="overlayScene">
+      <div class="card-inner" id="overlayCardInner">
+        <div class="card-face card-back">
+          <div class="back-inner">
+            <div class="back-stripe"></div>
+            <div style="position:relative;width:56px;height:56px;z-index:1;">
+              <div class="back-diamond"><div class="back-diamond-in"></div></div>
+            </div>
+            <div class="back-logo">STREAM</div>
+            <div class="back-sub">Card Series</div>
+          </div>
+        </div>
+        <div class="card-face card-front" id="overlayCardFront">
+          <div class="holo-layer"></div>
+          <div class="card-top" id="oCTop">
+            <div class="card-num" id="oCNum">#001</div>
+            <div class="card-series-lbl" id="oCSeries">STREAM SERIES</div>
+            <div class="card-rarity-pill" id="oCRarityPill">COMMON</div>
+          </div>
+          <div class="card-photo" id="oCPhoto">
+            <canvas id="overlayArtCanvas" width="256" height="300"></canvas>
+            <div class="card-name-banner">
+              <div class="card-player-name" id="oCPlayerName">???</div>
+              <div class="card-handle" id="oCHandle">@handle</div>
+            </div>
+          </div>
+          <div class="card-bottom" id="oCBottom">
+            <div class="card-team" id="oCTeam">TEAM NAME</div>
+            <div class="card-year">2025</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="overlay-banner" id="overlayBanner">
+      <div class="overlay-user" id="overlayUser">@username</div>
+      <div class="overlay-rarity" id="overlayRarity" style="color:var(--gold)">pulled a card!</div>
+    </div>
+    <div class="overlay-timer"><div class="overlay-timer-fill" id="overlayTimerFill"></div></div>
+  </div>
+
+  <div class="w-right">
+    <div class="history-panel">
+      <div class="h-head">
+        <div class="h-top-row">
+          <div class="h-title">Pull History</div>
+          <button class="clear-btn" onclick="clearHistory()">Clear All</button>
+        </div>
+        <div class="h-stats">
+          <div class="hstat"><div class="hstat-val" id="sTot">0</div><div class="hstat-lbl">Total Pulls</div></div>
+          <div class="hstat"><div class="hstat-val" id="sLeg" style="color:var(--legendary)">0</div><div class="hstat-lbl">Legendary</div></div>
+          <div class="hstat"><div class="hstat-val" id="sStrk" style="color:var(--text2)">—</div><div class="hstat-lbl">Best Streak</div></div>
+        </div>
+      </div>
+      <div class="rbd" id="rbd"></div>
+      <div class="h-list" id="histList"><div class="empty-state">No pulls yet — waiting for redeems...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- EDITOR -->
+<div id="pane-editor" class="tab-pane">
+  <div class="editor-scroll">
+    <div class="theme-sec">
+      <div class="sec-title">Theme Colors</div>
+      <div class="color-grid" id="themeGrid"></div>
+      <div class="sec-title" style="margin-bottom:10px;">Rarity Drop Rates</div>
+      <div id="weightSliders"></div>
+      <div style="font-size:11px;color:var(--text3);margin:5px 0 12px;" id="wTotal"></div>
+      <button class="apply-btn" onclick="applyTheme()">Apply Theme</button>
+    </div>
+    <div class="editor-body">
+      <div class="sidebar">
+        <div class="sidebar-head">
+          <div class="sidebar-title">Roster (<span id="rosterCount">0</span>)</div>
+          <div class="btn-group">
+            <button class="add-btn" onclick="addPlayer()">+ Add</button>
+            <button class="bulk-btn" onclick="showBulkImport()">Bulk</button>
+          </div>
+        </div>
+        <div class="sidebar-filters">
+          <input class="f-input" id="sSearch" placeholder="Search..." oninput="renderPlayerList()">
+          <select class="f-input" id="sFilter" onchange="renderPlayerList()">
+            <option value="">All rarities</option>
+            <option value="COMMON">Common</option>
+            <option value="UNCOMMON">Uncommon</option>
+            <option value="RARE">Rare</option>
+            <option value="EPIC">Epic</option>
+            <option value="LEGENDARY">Legendary</option>
+          </select>
+        </div>
+        <div class="player-list" id="playerList"></div>
+      </div>
+      <div class="editor-main" id="editorMain">
+        <div class="empty-state" style="margin-top:5rem;">Select a card to edit, or click + Add / Bulk to create.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- OVERLAY URL SECTION — pinned to bottom of editor pane, always visible -->
+  <div style="padding:16px 24px;border-top:2px solid var(--gold);background:var(--bg2);flex-shrink:0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;color:var(--text);margin-bottom:3px;">Ready to go live?</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.5;">Copy your overlay URL with all <span id="dlCardCount" style="color:var(--gold);font-weight:700;">0</span> cards. Add it as a Browser Source in SLOBS at 1920×1080.</div>
+      </div>
+      <button onclick="copyOverlayUrl()" id="copyUrlBtn" style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;padding:12px 24px;background:var(--gold);border:none;border-radius:8px;color:#111;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;" onmouseover="this.style.background='var(--gold2)'" onmouseout="this.style.background='var(--gold)'">
+        Copy Overlay URL
+      </button>
+    </div>
+    <div id="copyConfirm" style="font-size:11px;color:#4ad48a;font-weight:700;letter-spacing:1px;margin-top:8px;display:none;">✓ Copied! Paste into SLOBS Browser Source.</div>
+    <div id="copyErr" style="font-size:11px;color:#ff8888;font-weight:700;margin-top:8px;display:none;"></div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — loaded from localStorage, set via the setup form
+   ============================================================ */
+function getConfig(){
+  return {
+    clientId:   localStorage.getItem('cfg_client_id')||'',
+    redirectUri:'https://dexteritycs.github.io/Card-Drop/',
+    channelName:localStorage.getItem('cfg_channel_name')||'',
+    rewardName: localStorage.getItem('cfg_reward_name')||'Card Drop',
+  };
+}
+function saveConfig(c){
+  localStorage.setItem('cfg_client_id',   c.clientId.trim());
+  localStorage.setItem('cfg_channel_name',c.channelName.trim().toLowerCase());
+  localStorage.setItem('cfg_reward_name', c.rewardName.trim());
+}
+function isConfigured(){
+  const c=getConfig();
+  return c.clientId.length>4 && c.channelName.length>0;
+}
+
+const RARITIES=[
+  {name:'COMMON',   color:'#9ca3b0',weight:45,dots:1,stars:'●',idx:0,band:'#111622',accent:'#1c2030'},
+  {name:'UNCOMMON', color:'#4ad48a',weight:28,dots:2,stars:'●●',idx:1,band:'#0d1f16',accent:'#122018'},
+  {name:'RARE',     color:'#50a8f8',weight:17,dots:3,stars:'●●●',idx:2,band:'#0d1a2e',accent:'#101e32'},
+  {name:'EPIC',     color:'#c080fc',weight:8, dots:4,stars:'◆◆◆◆',idx:3,band:'#1a0e2a',accent:'#1c1030'},
+  {name:'LEGENDARY',color:'#f0c040',weight:2, dots:5,stars:'★★★★★',idx:4,band:'#201600',accent:'#221800'},
+];
+let rarityWeights=[45,28,17,8,2];
+
+const EL_PAL={
+  hype:    {bg:'#1a0010',mid:'#6a0040',acc:'#ff40aa'},
+  dark:    {bg:'#080810',mid:'#1a1a35',acc:'#8888cc'},
+  psychic: {bg:'#130013',mid:'#3a0040',acc:'#dd44ee'},
+  grass:   {bg:'#001808',mid:'#1a4500',acc:'#55dd00'},
+  ghost:   {bg:'#080818',mid:'#1a1a45',acc:'#6666ff'},
+  water:   {bg:'#001020',mid:'#003070',acc:'#00aaff'},
+  fire:    {bg:'#1a0800',mid:'#7a2000',acc:'#ff6600'},
+  electric:{bg:'#0a0a00',mid:'#505000',acc:'#ffee00'},
+  normal:  {bg:'#0a0a0a',mid:'#303030',acc:'#888888'},
+};
+
+let players=[
+  {id:1,name:'PogChamp Pete',handle:'@pogchamppete',team:'HYPE SQUAD',rarity:'LEGENDARY',series:'ICONS',photoBg:'#1a0820',photoAcc:'#ff40c0',image:null,flavor:'The face that started it all.'},
+  {id:2,name:'Kappa King',handle:'@kappakg',team:'IRONICS FC',rarity:'EPIC',series:'LEGENDS',photoBg:'#080818',photoAcc:'#8080dd',image:null,flavor:'Sarcasm is a full-time job.'},
+  {id:3,name:'MonkaS Mike',handle:'@monkasmike',team:'ANXIETY XI',rarity:'EPIC',series:'LEGENDS',photoBg:'#101820',photoAcc:'#40a0ff',image:null,flavor:'Always watching. Always sweating.'},
+  {id:4,name:'LUL Larry',handle:'@lullarry',team:'COMEDY CLUB',rarity:'RARE',series:'BASE',photoBg:'#0d1808',photoAcc:'#50d820',image:null,flavor:'Donated $4.20 for the meme.'},
+  {id:5,name:'Sadge Sam',handle:'@sadgesam',team:'FEELS CITY',rarity:'UNCOMMON',series:'BASE',photoBg:'#001020',photoAcc:'#20a0cc',image:null,flavor:'It do be like that sometimes.'},
+  {id:6,name:'GigaChad Greg',handle:'@gigachadgreg',team:'ALPHA SQUAD',rarity:'LEGENDARY',series:'ICONS',photoBg:'#101018',photoAcc:'#c060ff',image:null,flavor:'Does not acknowledge cope.'},
+  {id:7,name:'Catjam Carl',handle:'@catjamcarl',team:'VIBE CHECK',rarity:'RARE',series:'BASE',photoBg:'#001a08',photoAcc:'#30dd70',image:null,flavor:'The cat is always in sync.'},
+  {id:8,name:'Copium Cole',handle:'@copiumcole',team:'COPE UNITED',rarity:'RARE',series:'BASE',photoBg:'#100818',photoAcc:'#8840cc',image:null,flavor:'Coping and seething simultaneously.'},
+  {id:9,name:'W Walter',handle:'@wwalter',team:'WIN FC',rarity:'RARE',series:'BASE',photoBg:'#081018',photoAcc:'#40a0ff',image:null,flavor:'No notes. Absolute W.'},
+  {id:10,name:'ResidentSleeper Rick',handle:'@rsleeperrick',team:'NAPPER FC',rarity:'COMMON',series:'BASE',photoBg:'#0a0a0a',photoAcc:'#606060',image:null,flavor:'5-hour meta discussion. Every day.'},
+  {id:11,name:'Jebaited Jake',handle:'@jebjakey',team:'TRICKSTER FC',rarity:'UNCOMMON',series:'BASE',photoBg:'#080818',photoAcc:'#5050cc',image:null,flavor:'Hook. Line. Sinker.'},
+  {id:12,name:'OMEGALUL Ozzy',handle:'@omegaozzy',team:'COMEDY CLUB',rarity:'EPIC',series:'LEGENDS',photoBg:'#1a0800',photoAcc:'#ff5500',image:null,flavor:'Laughed so hard the stream crashed.'},
+];
+let nextId=13;
+let selectedId=null;
+
+/* ===== AUTH / TOKEN ===== */
+let accessToken=null;
+let broadcasterId=null;
+let esSocket=null;
+let esSessionId=null;
+let pingInterval=null;
+
+function startAuth(){
+  const c=getConfig();
+  if(!isConfigured()){
+    showSetupPane();
+    return;
+  }
+  const scope='channel:read:redemptions';
+  const url=`https://id.twitch.tv/oauth2/authorize?client_id=${c.clientId}&redirect_uri=${encodeURIComponent(c.redirectUri)}&response_type=token&scope=${scope}&force_verify=true`;
+  window.location.href=url;
+}
+
+function handleOAuthCallback(){
+  const hash=window.location.hash;
+  if(!hash)return false;
+  const params=new URLSearchParams(hash.replace('#','?').slice(1));
+  const token=params.get('access_token');
+  if(!token)return false;
+  accessToken=token;
+  localStorage.setItem('twitch_token',token);
+  // also save under the overlay key so the downloaded overlay never needs to re-auth
+  const c=getConfig();
+  if(c.channelName)localStorage.setItem('overlay_token_'+c.channelName,token);
+  window.history.replaceState(null,'',window.location.pathname);
+  return true;
+}
+
+function logout(){
+  accessToken=null;broadcasterId=null;
+  localStorage.removeItem('twitch_token');
+  if(esSocket)esSocket.close();
+  clearInterval(pingInterval);
+  setConnStatus('','Not connected');
+  document.getElementById('logoutBtn').style.display='none';
+  document.getElementById('pullBtn').disabled=true;
+  showAuthPane();
+}
+
+function showConnectPane(){
+  document.getElementById('connectSummary').style.display='none';
+  document.getElementById('setupCard').style.display='none';
+  document.getElementById('connectCard').style.display='block';
+  showAuthPane();
+}
+
+function showSetupPane(){
+  document.getElementById('setupClientId').value='';
+  document.getElementById('setupChannel').value='';
+  document.getElementById('setupReward').value='';
+  document.getElementById('setupCard').style.display='block';
+  document.getElementById('connectCard').style.display='none';
+  document.getElementById('setupErr').style.display='none';
+  showAuthPane();
+}
+
+function downloadOverlay(){
+  const c=getConfig();
+  const playersJson=JSON.stringify(players);
+  const RELAY='https://dexteritycs.github.io/Card-Drop/';
+  const tokenKey='overlay_token_'+c.channelName;
+
+  const html=`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Card Drop Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;background:transparent;overflow:hidden;font-family:'Barlow Condensed',sans-serif;}
+.card-wrap{position:absolute;bottom:60px;right:60px;display:flex;flex-direction:column;align-items:center;gap:10px;transform:translateX(500px);opacity:0;transition:transform .65s cubic-bezier(.22,.68,0,1.25),opacity .4s ease;pointer-events:none;}
+.card-wrap.visible{transform:translateX(0);opacity:1;}
+.card-wrap.hiding{transform:translateX(500px);opacity:0;transition:transform .5s cubic-bezier(.4,0,1,1),opacity .35s ease;}
+.card-scene{width:260px;height:390px;perspective:1200px;}
+.card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.4,0,.2,1);}
+.card-inner.flipped{transform:rotateY(180deg);}
+.card-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:14px;overflow:hidden;}
+.card-back{background:linear-gradient(145deg,#0d0d1c,#1a1a30);border:2px solid #2a2a50;}
+.back-inner{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;position:relative;}
+.back-stripe{position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,.015) 8px,rgba(255,255,255,.015) 9px);}
+.back-diamond{width:64px;height:64px;border:2px solid #2a2a55;transform:rotate(45deg);position:relative;z-index:1;}
+.back-diamond-in{width:42px;height:42px;background:#1a1a38;border:1px solid #2a2a50;position:absolute;top:50%;left:50%;margin:-21px 0 0 -21px;}
+.back-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:6px;color:#3a3a70;z-index:1;}
+.back-sub{font-size:9px;letter-spacing:3px;color:#2a2a50;text-transform:uppercase;z-index:1;}
+.card-front{transform:rotateY(180deg);display:flex;flex-direction:column;border:2.5px solid var(--cc,#9ca3b0);}
+.card-front.lglow{animation:lglow 2s ease-in-out infinite;}
+.card-front.eglow{animation:eglow 3s ease-in-out infinite;}
+@keyframes lglow{0%,100%{box-shadow:0 0 14px 3px #f0c04055;}50%{box-shadow:0 0 30px 8px #f0c04088;}}
+@keyframes eglow{0%,100%{box-shadow:0 0 10px 2px #c080fc33;}50%{box-shadow:0 0 22px 5px #c080fc66;}}
+.holo{position:absolute;inset:0;pointer-events:none;opacity:0;z-index:10;border-radius:12px;mix-blend-mode:screen;}
+.card-inner.flipped .holo{opacity:1;animation:holoshift 4s linear infinite;}
+.card-inner.flipped.legendary .holo{animation-duration:2s;}
+.card-inner.flipped.epic .holo{opacity:.65;}
+@keyframes holoshift{0%{background:linear-gradient(105deg,rgba(255,50,50,.08) 0%,rgba(255,180,0,.08) 20%,rgba(80,255,80,.08) 40%,rgba(0,180,255,.08) 60%,rgba(180,0,255,.08) 80%,transparent 100%);filter:hue-rotate(0deg);}50%{filter:hue-rotate(180deg);}100%{background:linear-gradient(105deg,rgba(255,50,50,.08) 0%,rgba(255,180,0,.08) 20%,rgba(80,255,80,.08) 40%,rgba(0,180,255,.08) 60%,rgba(180,0,255,.08) 80%,transparent 100%);filter:hue-rotate(360deg);}}
+.card-top{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:var(--cb,#1a1a2e);flex-shrink:0;z-index:2;position:relative;}
+.card-num{font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:1px;}
+.card-series{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;color:rgba(255,255,255,.35);}
+.card-rarity-pill{font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--cc,#9ca3b0);background:rgba(0,0,0,.4);padding:2px 7px;border-radius:3px;}
+.card-photo{flex:1;position:relative;overflow:hidden;background:var(--cpb,#0d1520);}
+.card-photo canvas,.card-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+.card-name-banner{position:absolute;bottom:0;left:0;right:0;padding:36px 12px 10px;background:linear-gradient(to top,rgba(0,0,0,.92),transparent);z-index:3;}
+.card-player-name{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#fff;line-height:1;text-shadow:0 2px 10px rgba(0,0,0,.9);}
+.card-handle{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--cc,#9ca3b0);margin-top:2px;}
+.card-bottom{height:28px;background:var(--ca,#111);display:flex;align-items:center;justify-content:space-between;padding:0 10px;flex-shrink:0;z-index:2;}
+.card-team{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.3);}
+.card-year{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,.2);}
+.redeemer-banner{text-align:center;animation:bannerIn .4s ease .2s both;}
+@keyframes bannerIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.redeemer-name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,1);}
+.redeemer-rarity{font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;text-shadow:0 1px 8px rgba(0,0,0,1);}
+.timer-bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;width:260px;}
+.timer-fill{height:100%;border-radius:2px;background:#f0c040;transform-origin:left;transition:transform linear;}
+/* auth prompt shown until token received */
+#authPrompt{position:fixed;inset:0;background:rgba(8,8,16,.96);display:flex;align-items:center;justify-content:center;z-index:100;}
+.ap-box{background:#13131a;border:1px solid #353550;border-radius:14px;padding:36px 40px;max-width:480px;text-align:center;}
+.ap-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:6px;color:#f0c040;margin-bottom:8px;}
+.ap-sub{font-size:13px;color:#9090b0;line-height:1.6;margin-bottom:24px;}
+.ap-btn{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:4px;padding:13px 28px;background:#9146ff;border:none;border-radius:8px;color:#fff;cursor:pointer;transition:background .2s;}
+.ap-btn:hover{background:#7c35e0;}
+.ap-waiting{font-size:12px;color:#9090b0;margin-top:16px;display:none;}
+.ap-note{font-size:11px;color:#55556a;margin-top:14px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div id="authPrompt">
+  <div class="ap-box">
+    <div class="ap-title">Card Drop Overlay</div>
+    <div class="ap-sub">Click below to connect your Twitch account.<br>A browser tab will open — authorize and come back.</div>
+    <button class="ap-btn" id="authBtn" onclick="doAuth()">
+      Connect with Twitch
+    </button>
+    <div class="ap-waiting" id="apWaiting">Waiting for authorization... you can close that tab once done.</div>
+    <div class="ap-note">Only needs <code>channel:read:redemptions</code> — read-only.<br>You only need to do this once per browser.</div>
+  </div>
+</div>
+
+<div class="card-wrap" id="cardWrap">
+  <div class="card-scene">
+    <div class="card-inner" id="cardInner">
+      <div class="card-face card-back">
+        <div class="back-inner">
+          <div class="back-stripe"></div>
+          <div style="position:relative;width:64px;height:64px;z-index:1;">
+            <div class="back-diamond"><div class="back-diamond-in"></div></div>
+          </div>
+          <div class="back-logo">STREAM</div>
+          <div class="back-sub">Card Drop</div>
+        </div>
+      </div>
+      <div class="card-face card-front" id="cardFront">
+        <div class="holo"></div>
+        <div class="card-top" id="cTop">
+          <div class="card-num" id="cNum">#001</div>
+          <div class="card-series" id="cSeries">BASE SERIES</div>
+          <div class="card-rarity-pill" id="cPill">COMMON</div>
+        </div>
+        <div class="card-photo" id="cPhoto">
+          <canvas id="artCanvas" width="256" height="302"></canvas>
+          <div class="card-name-banner">
+            <div class="card-player-name" id="cName">???</div>
+            <div class="card-handle" id="cHandle">@handle</div>
+          </div>
+        </div>
+        <div class="card-bottom" id="cBottom">
+          <div class="card-team" id="cTeam">TEAM</div>
+          <div class="card-year">2025</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="redeemer-banner">
+    <div class="redeemer-name" id="redeemerName"></div>
+    <div class="redeemer-rarity" id="redeemerRarity"></div>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+</div>
+
+<script>
+const CLIENT_ID   = ${JSON.stringify(c.clientId)};
+const CHANNEL     = ${JSON.stringify(c.channelName)};
+const REWARD      = ${JSON.stringify(c.rewardName||'Card Drop')};
+const RELAY_URL   = ${JSON.stringify(RELAY)};
+const TOKEN_KEY   = ${JSON.stringify(tokenKey)};
+const DISPLAY_SEC = 12;
+
+const RARITIES=[
+  {name:'COMMON',   color:'#9ca3b0',weight:45,dots:1,stars:'●',idx:0,band:'#111622',accent:'#1c2030'},
+  {name:'UNCOMMON', color:'#4ad48a',weight:28,dots:2,stars:'●●',idx:1,band:'#0d1f16',accent:'#122018'},
+  {name:'RARE',     color:'#50a8f8',weight:17,dots:3,stars:'●●●',idx:2,band:'#0d1a2e',accent:'#101e32'},
+  {name:'EPIC',     color:'#c080fc',weight:8, dots:4,stars:'◆◆◆◆',idx:3,band:'#1a0e2a',accent:'#1c1030'},
+  {name:'LEGENDARY',color:'#f0c040',weight:2, dots:5,stars:'★★★★★',idx:4,band:'#201600',accent:'#221800'},
+];
+const PLAYERS=${playersJson};
+
+let token=localStorage.getItem(TOKEN_KEY)||localStorage.getItem('twitch_token');
+if(token&&!localStorage.getItem(TOKEN_KEY))localStorage.setItem(TOKEN_KEY,token);
+let broadcasterId=null,esSocket=null,hideTimer=null,pollTimer=null;
+
+function doAuth(){
+  const authUrl='https://id.twitch.tv/oauth2/authorize'
+    +'?client_id='+CLIENT_ID
+    +'&redirect_uri='+encodeURIComponent(RELAY_URL)
+    +'&response_type=token'
+    +'&scope=channel:read:redemptions'
+    +'&state='+encodeURIComponent(TOKEN_KEY);
+  window.open(authUrl,'_blank','width=600,height=700');
+  document.getElementById('apWaiting').style.display='block';
+  document.getElementById('authBtn').disabled=true;
+  // poll localStorage every second for the token saved by the relay page
+  pollTimer=setInterval(()=>{
+    const t=localStorage.getItem(TOKEN_KEY);
+    if(t){clearInterval(pollTimer);token=t;startup();}
+  },1000);
+}
+
+function pickRarity(){
+  const tot=RARITIES.reduce((s,r)=>s+r.weight,0);
+  let r=Math.random()*tot;
+  for(const R of RARITIES){r-=R.weight;if(r<=0)return R;}
+  return RARITIES[0];
+}
+function pickPlayer(rname){
+  const pool=PLAYERS.filter(p=>p.rarity===rname);
+  if(!pool.length)return PLAYERS[Math.floor(Math.random()*PLAYERS.length)];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+const EL={hype:{bg:'#1a0010',acc:'#ff40aa'},dark:{bg:'#080810',acc:'#8888cc'},psychic:{bg:'#130013',acc:'#dd44ee'},grass:{bg:'#001808',acc:'#55dd00'},ghost:{bg:'#080818',acc:'#6666ff'},water:{bg:'#001020',acc:'#00aaff'},fire:{bg:'#1a0800',acc:'#ff6600'},electric:{bg:'#0a0a00',acc:'#ffee00'},normal:{bg:'#0a0a0a',acc:'#888888'}};
+
+function drawArt(canvas,player,rarity){
+  const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+  const pal=EL[player.el||'normal'];
+  const bg=player.photoBg||pal.bg,acc=player.photoAcc||pal.acc||rarity.color;
+  ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(w*.65+i*28,0);ctx.lineTo(w+20,h*.35+i*20);ctx.lineTo(w+20,0);ctx.closePath();ctx.fillStyle=acc+'10';ctx.fill();}
+  ctx.strokeStyle=acc+'0a';ctx.lineWidth=1;
+  for(let x=0;x<w;x+=22){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=22){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  const cx=w*.44,cy=h*.44;
+  ctx.beginPath();ctx.ellipse(cx,cy+18,36,52,0,0,Math.PI*2);ctx.fillStyle=acc+'18';ctx.fill();
+  ctx.beginPath();ctx.moveTo(cx-26,cy+58);ctx.lineTo(cx-30,cy+4);ctx.lineTo(cx-16,cy-8);ctx.lineTo(cx,cy-4);ctx.lineTo(cx+16,cy-8);ctx.lineTo(cx+30,cy+4);ctx.lineTo(cx+26,cy+58);ctx.closePath();ctx.fillStyle=acc+'55';ctx.fill();ctx.strokeStyle=acc+'aa';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.font="bold 22px 'Bebas Neue',sans-serif";ctx.fillStyle=acc+'cc';ctx.textAlign='center';ctx.fillText(String(player.id||1).padStart(2,'0'),cx,cy+26);
+  ctx.beginPath();ctx.arc(cx,cy-22,17,0,Math.PI*2);ctx.fillStyle=acc+'44';ctx.fill();ctx.strokeStyle=acc+'88';ctx.lineWidth=1.5;ctx.stroke();
+  for(const[ox,oy,r]of[[-9,-26,5],[9,-26,5]]){ctx.beginPath();ctx.arc(cx+ox,cy+oy,r,0,Math.PI*2);ctx.fillStyle=acc+'bb';ctx.fill();ctx.beginPath();ctx.arc(cx+ox,cy+oy,2.5,0,Math.PI*2);ctx.fillStyle='#000a';ctx.fill();}
+  ctx.lineWidth=8;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(cx-30,cy+4);ctx.lineTo(cx-46,cy+22);ctx.lineTo(cx-38,cy+32);ctx.strokeStyle=acc+'55';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+30,cy+4);ctx.lineTo(cx+46,cy+22);ctx.lineTo(cx+38,cy+32);ctx.stroke();
+  ctx.lineWidth=9;ctx.beginPath();ctx.moveTo(cx-12,cy+58);ctx.lineTo(cx-15,cy+86);ctx.strokeStyle=acc+'44';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+12,cy+58);ctx.lineTo(cx+15,cy+86);ctx.stroke();
+  ctx.lineCap='butt';ctx.lineWidth=1;
+  if(rarity.idx===4){ctx.save();ctx.translate(w-22,22);ctx.beginPath();for(let a=0;a<Math.PI*2;a+=Math.PI/5){const r1=10,r2=4,x1=Math.cos(a)*r1,y1=Math.sin(a)*r1,x2=Math.cos(a+Math.PI/5)*r2,y2=Math.sin(a+Math.PI/5)*r2;if(a===0)ctx.moveTo(x1,y1);else ctx.lineTo(x1,y1);ctx.lineTo(x2,y2);}ctx.closePath();ctx.fillStyle='#f0c040cc';ctx.fill();ctx.restore();}
+}
+
+function triggerCard(username){
+  if(hideTimer)clearTimeout(hideTimer);
+  const rarity=pickRarity(),player=pickPlayer(rarity.name);
+  const front=document.getElementById('cardFront'),inner=document.getElementById('cardInner'),wrap=document.getElementById('cardWrap');
+  front.style.setProperty('--cc',rarity.color);front.style.borderColor=rarity.color;
+  front.className='card-face card-front'+(rarity.name==='LEGENDARY'?' lglow':rarity.name==='EPIC'?' eglow':'');
+  inner.className='card-inner';
+  document.getElementById('cNum').textContent='#'+String(player.id).padStart(3,'0');
+  document.getElementById('cSeries').textContent=(player.series||'BASE')+' SERIES';
+  document.getElementById('cPill').textContent=rarity.stars+' '+rarity.name;
+  document.getElementById('cPill').style.color=rarity.color;
+  document.getElementById('cTop').style.background=rarity.band;
+  document.getElementById('cBottom').style.background=rarity.accent;
+  document.getElementById('cTeam').textContent=(player.team||'').toUpperCase();
+  document.getElementById('redeemerName').textContent='@'+username;
+  document.getElementById('redeemerRarity').textContent=rarity.stars+' '+rarity.name+' PULL!';
+  document.getElementById('redeemerRarity').style.color=rarity.color;
+  const photo=document.getElementById('cPhoto');
+  photo.style.background=player.photoBg||'#0d1520';
+  if(player.image){
+    photo.innerHTML='<img src="'+player.image+'" style="width:100%;height:100%;object-fit:cover;display:block;"><div class="card-name-banner"><div class="card-player-name">'+player.name.toUpperCase()+'</div><div class="card-handle" style="color:'+rarity.color+'">'+player.handle+'</div></div>';
+  } else {
+    photo.innerHTML='<canvas id="artCanvas" width="256" height="302"></canvas><div class="card-name-banner"><div class="card-player-name">'+player.name.toUpperCase()+'</div><div class="card-handle" style="color:'+rarity.color+'">'+player.handle+'</div></div>';
+    drawArt(document.getElementById('artCanvas'),player,rarity);
+  }
+  wrap.classList.remove('hiding');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add('visible')));
+  setTimeout(()=>inner.classList.add('flipped'),1200);
+  const fill=document.getElementById('timerFill');
+  fill.style.transition='none';fill.style.transform='scaleX(1)';
+  setTimeout(()=>{fill.style.transition='transform '+DISPLAY_SEC+'s linear';fill.style.transform='scaleX(0)';},100);
+  hideTimer=setTimeout(()=>{wrap.classList.add('hiding');wrap.classList.remove('visible');setTimeout(()=>inner.classList.remove('flipped'),600);},DISPLAY_SEC*1000);
+}
+
+async function startup(){
+  document.getElementById('authPrompt').style.display='none';
+  try{
+    const r=await fetch('https://api.twitch.tv/helix/users?login='+CHANNEL,{headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token}});
+    if(!r.ok)throw new Error();
+    const d=await r.json();
+    broadcasterId=d.data[0]?.id;
+    if(!broadcasterId)throw new Error();
+    openES();
+  }catch(e){
+    localStorage.removeItem(TOKEN_KEY);
+    token=null;
+    document.getElementById('authPrompt').style.display='flex';
+    document.getElementById('authBtn').disabled=false;
+    document.getElementById('apWaiting').style.display='none';
+  }
+}
+
+function openES(){
+  esSocket=new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+  esSocket.onmessage=async(e)=>{
+    const msg=JSON.parse(e.data),type=msg.metadata?.message_type;
+    if(type==='session_welcome'){
+      const sid=msg.payload.session.id;
+      await fetch('https://api.twitch.tv/helix/eventsub/subscriptions',{method:'POST',headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({type:'channel.channel_points_custom_reward_redemption.add',version:'1',condition:{broadcaster_user_id:broadcasterId},transport:{method:'websocket',session_id:sid}})});
+    } else if(type==='notification'){
+      const evt=msg.payload.event;
+      if(evt&&evt.reward?.title===REWARD)triggerCard(evt.user_name||evt.user_login||'Viewer');
+    } else if(type==='session_reconnect'){
+      esSocket.close();esSocket=new WebSocket(msg.payload.session.reconnect_url);
+    }
+  };
+  esSocket.onclose=(e)=>{if(e.code!==1000)setTimeout(openES,5000);};
+}
+
+// on load: if token already saved, go straight in
+if(token){startup();}
+else{document.getElementById('authPrompt').style.display='flex';}
+<\/script>
+</body>
+</html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='card-drop-overlay.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function copyOverlayUrl(){
+  const c=getConfig();
+  const err=document.getElementById('copyErr');
+  const confirm=document.getElementById('copyConfirm');
+  err.style.display='none';
+  if(!c.clientId){err.style.display='block';err.textContent='Go back to setup and connect with Twitch first.';return;}
+  if(!c.channelName){err.style.display='block';err.textContent='No channel name saved — go back to setup.';return;}
+  const token=localStorage.getItem('twitch_token');
+  if(!token){err.style.display='block';err.textContent='No Twitch token found — please connect with Twitch first.';return;}
+  // save current cards to localStorage so overlay.html can also read them (same origin)
+  localStorage.setItem('card_drop_players',JSON.stringify(players));
+  // embed token in URL hash so SLOBS browser gets it on first load — never sent to any server
+  const url='https://dexteritycs.github.io/Card-Drop/overlay.html'
+    +'?cid='+encodeURIComponent(c.clientId)
+    +'&ch='+encodeURIComponent(c.channelName)
+    +'&rw='+encodeURIComponent(c.rewardName||'Card Drop')
+    +'#t='+encodeURIComponent(token);
+  navigator.clipboard.writeText(url).then(()=>{
+    confirm.style.display='block';
+    setTimeout(()=>confirm.style.display='none',4000);
+  }).catch(()=>{
+    err.style.display='block';
+    err.textContent='Could not copy automatically. URL: '+url;
+  });
+}
+
+function saveSetupAndConnect(){
+  const clientId=document.getElementById('setupClientId').value.trim();
+  const channel=document.getElementById('setupChannel').value.trim().toLowerCase();
+  const reward=document.getElementById('setupReward').value.trim()||'Card Drop';
+  const err=document.getElementById('setupErr');
+  if(!clientId){err.style.display='block';err.textContent='Client ID is required.';return;}
+  if(!channel){err.style.display='block';err.textContent='Twitch username is required.';return;}
+  saveConfig({clientId,channelName:channel,rewardName:reward});
+  startAuth();
+}
+
+function showAuthPane(){
+  document.querySelectorAll('.tab-pane').forEach(p=>{p.classList.remove('active');p.style.display='';});
+  document.getElementById('pane-auth').style.display='flex';
+  document.getElementById('pane-auth').classList.add('active');
+  document.getElementById('btn-widget').classList.remove('active');
+}
+
+function showWidgetPane(){
+  document.getElementById('pane-auth').style.display='none';
+  document.getElementById('pane-auth').classList.remove('active');
+  document.getElementById('pane-widget').classList.add('active');
+  document.getElementById('btn-widget').classList.add('active');
+  document.getElementById('logoutBtn').style.display='block';
+}
+
+async function init(){
+  // handle overlay token relay — overlay sends state=tokenKey, we save token for it
+  const hash=window.location.hash;
+  if(hash){
+    const p=new URLSearchParams(hash.replace('#','?').slice(1));
+    const token=p.get('access_token');
+    const state=p.get('state');
+    if(token&&state&&state.startsWith('overlay_token_')){
+      localStorage.setItem(state,token);
+      window.history.replaceState(null,'',window.location.pathname);
+      document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+      document.getElementById('pane-auth').style.display='flex';
+      document.getElementById('pane-auth').classList.add('active');
+      document.getElementById('setupCard').style.display='none';
+      document.getElementById('connectCard').style.display='none';
+      document.getElementById('pane-auth').innerHTML=`
+        <div class="auth-card" style="max-width:400px;text-align:center;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:6px;color:var(--gold);margin-bottom:12px;">All Done!</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:20px;">
+            Your overlay is now authorized.<br>
+            You can <b style="color:var(--text);">close this tab</b> and go back to your overlay.
+          </div>
+          <div style="font-size:12px;color:var(--text3);">The overlay will connect automatically.</div>
+        </div>`;
+      return;
+    }
+  }
+
+  const fromCallback=handleOAuthCallback();
+  const storedToken=localStorage.getItem('twitch_token');
+
+  if(fromCallback||storedToken){
+    accessToken=accessToken||storedToken;
+    showWidgetPane();
+    setConnStatus('connecting','Connecting...');
+    await fetchBroadcasterId();
+    if(broadcasterId) connectEventSub();
+    else {
+      setConnStatus('error','Auth failed — log in again');
+      setTimeout(logout,3000);
+    }
+  } else if(isConfigured()){
+    showConnectPane();
+  } else {
+    showSetupPane();
+  }
+}
+
+async function fetchBroadcasterId(){
+  const c=getConfig();
+  try{
+    const r=await fetch(`https://api.twitch.tv/helix/users?login=${c.channelName}`,{
+      headers:{'Client-Id':c.clientId,'Authorization':'Bearer '+accessToken}
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    broadcasterId=d.data[0]?.id;
+  }catch(e){
+    console.error('fetchBroadcasterId',e);
+    broadcasterId=null;
+  }
+}
+
+/* ===== EVENTSUB WEBSOCKET ===== */
+function connectEventSub(){
+  if(esSocket)esSocket.close();
+  esSocket=new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+
+  esSocket.onopen=()=>{
+    setConnStatus('connecting','Handshaking...');
+  };
+
+  esSocket.onmessage=async(e)=>{
+    const msg=JSON.parse(e.data);
+    const type=msg.metadata?.message_type;
+
+    if(type==='session_welcome'){
+      esSessionId=msg.payload.session.id;
+      await subscribeToRedemptions();
+    }
+    else if(type==='session_keepalive'){
+      // keepalive — connection healthy
+    }
+    else if(type==='notification'){
+      const evt=msg.payload.event;
+      if(evt && evt.reward?.title===getConfig().rewardName){
+        const username=evt.user_name||evt.user_login||'Viewer';
+        triggerPull(username);
+      }
+    }
+    else if(type==='session_reconnect'){
+      const url=msg.payload.session.reconnect_url;
+      esSocket.close();
+      esSocket=new WebSocket(url);
+    }
+    else if(type==='revocation'){
+      setConnStatus('error','Subscription revoked — re-authorise');
+    }
+  };
+
+  esSocket.onerror=()=>setConnStatus('error','Connection error');
+  esSocket.onclose=(e)=>{
+    if(e.code!==1000){
+      setConnStatus('error','Disconnected — reconnecting...');
+      setTimeout(connectEventSub,5000);
+    }
+  };
+}
+
+async function subscribeToRedemptions(){
+  const c=getConfig();
+  try{
+    const body={
+      type:'channel.channel_points_custom_reward_redemption.add',
+      version:'1',
+      condition:{broadcaster_user_id:broadcasterId},
+      transport:{method:'websocket',session_id:esSessionId}
+    };
+    const r=await fetch('https://api.twitch.tv/helix/eventsub/subscriptions',{
+      method:'POST',
+      headers:{'Client-Id':c.clientId,'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    if(r.ok||r.status===409){
+      setConnStatus('connected','Live — listening for "'+c.rewardName+'"');
+      document.getElementById('pullBtn').disabled=false;
+    } else {
+      const d=await r.json();
+      setConnStatus('error','Sub failed: '+(d.message||r.status));
+    }
+  }catch(e){
+    setConnStatus('error','Sub error: '+e.message);
+  }
+}
+
+function setConnStatus(state,label){
+  const dot=document.getElementById('connDot');
+  const lbl=document.getElementById('connLabel');
+  dot.className='conn-dot'+(state?' '+state:'');
+  lbl.textContent=label;
+}
+
+/* ===== SLOBS OVERLAY ===== */
+let slobsMode=false;
+let overlayDuration=12;
+let overlayPos='bottom-right';
+let overlayHideTimer=null;
+let overlayFlipped=false;
+
+function toggleObs(){
+  slobsMode=!slobsMode;
+  document.body.classList.toggle('slobs-mode',slobsMode);
+  document.getElementById('obsBtn').classList.toggle('active',slobsMode);
+  document.getElementById('obsBtn').textContent=slobsMode?'Exit Overlay':'SLOBS Mode';
+  const wrap=document.getElementById('overlayWrap');
+  wrap.style.display=slobsMode?'block':'none';
+  if(!slobsMode){
+    wrap.classList.remove('visible','hiding');
+  }
+}
+
+function setPos(pos){
+  overlayPos=pos;
+  document.querySelectorAll('.pos-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  const wrap=document.getElementById('overlayWrap');
+  wrap.style.top='';wrap.style.bottom='';wrap.style.left='';wrap.style.right='';
+  const margin='40px';
+  if(pos==='top-left'){wrap.style.top=margin;wrap.style.left=margin;}
+  else if(pos==='top-right'){wrap.style.top=margin;wrap.style.right=margin;}
+  else if(pos==='bottom-left'){wrap.style.bottom=margin;wrap.style.left=margin;}
+  else{wrap.style.bottom=margin;wrap.style.right=margin;}
+  const slideDir=(pos.includes('left'))?'translateX(-360px)':'translateX(360px)';
+  wrap.style.setProperty('--slide-out',slideDir);
+}
+
+function showOverlayCard(rarity,player,user){
+  const wrap=document.getElementById('overlayWrap');
+  const inner=document.getElementById('overlayCardInner');
+  const front=document.getElementById('overlayCardFront');
+
+  front.style.setProperty('--card-color',rarity.color);
+  front.style.borderColor=rarity.color;
+  inner.className='card-inner';
+  if(rarity.name==='LEGENDARY')inner.classList.add('legendary');
+  else if(rarity.name==='EPIC')inner.classList.add('epic');
+  if(overlayFlipped){inner.classList.remove('flipped');overlayFlipped=false;}
+
+  document.getElementById('oCNum').textContent='#'+String(player.id).padStart(3,'0');
+  document.getElementById('oCSeries').textContent=(player.series||'BASE')+' SERIES';
+  document.getElementById('oCRarityPill').textContent=rarity.stars+' '+rarity.name;
+  document.getElementById('oCRarityPill').style.color=rarity.color;
+  document.getElementById('oCTop').style.background=rarity.band;
+  document.getElementById('oCBottom').style.background=rarity.accent;
+  document.getElementById('oCTeam').textContent=(player.team||'').toUpperCase();
+  document.getElementById('overlayUser').textContent='@'+user;
+  document.getElementById('overlayRarity').textContent=rarity.stars+' '+rarity.name+' PULL!';
+  document.getElementById('overlayRarity').style.color=rarity.color;
+
+  const photo=document.getElementById('oCPhoto');
+  photo.style.background=player.photoBg||'#0d1520';
+  if(player.image){
+    photo.innerHTML=`<img src="${player.image}" style="width:100%;height:100%;object-fit:cover;display:block;">
+    <div class="card-name-banner">
+      <div class="card-player-name">${(player.name||'').toUpperCase()}</div>
+      <div class="card-handle" style="color:${rarity.color}">${player.handle||''}</div>
+    </div>`;
+  } else {
+    photo.innerHTML=`<canvas id="overlayArtCanvas" width="256" height="300"></canvas>
+    <div class="card-name-banner">
+      <div class="card-player-name">${(player.name||'').toUpperCase()}</div>
+      <div class="card-handle" style="color:${rarity.color}">${player.handle||''}</div>
+    </div>`;
+    drawPlayerArt(document.getElementById('overlayArtCanvas'),player,rarity);
+  }
+
+  if(overlayHideTimer)clearTimeout(overlayHideTimer);
+  wrap.classList.remove('hiding');
+  wrap.style.display='block';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    wrap.classList.add('visible');
+  }));
+
+  const flipDelay=1200;
+  setTimeout(()=>{
+    inner.classList.add('flipped');
+    overlayFlipped=true;
+  },flipDelay);
+
+  const fill=document.getElementById('overlayTimerFill');
+  fill.style.transition='none';
+  fill.style.transform='scaleX(1)';
+  setTimeout(()=>{
+    fill.style.transition=`transform ${overlayDuration}s linear`;
+    fill.style.transform='scaleX(0)';
+  },50);
+
+  overlayHideTimer=setTimeout(()=>hideOverlayCard(),overlayDuration*1000);
+}
+
+function hideOverlayCard(){
+  const wrap=document.getElementById('overlayWrap');
+  wrap.classList.add('hiding');
+  wrap.classList.remove('visible');
+  setTimeout(()=>{
+    if(!slobsMode)wrap.style.display='none';
+    const inner=document.getElementById('overlayCardInner');
+    inner.classList.remove('flipped');
+    overlayFlipped=false;
+  },600);
+}
+
+/* ===== CARD LOGIC ===== */
+let flipped=false,animating=false;
+let pullHistory=[],rarityCount={},bestStreak={name:'—',color:'var(--text2)',count:0},currentStreak={name:null,count:0};
+
+function pickRarity(){
+  const tot=rarityWeights.reduce((s,w)=>s+w,0);
+  let r=Math.random()*tot;
+  for(let i=0;i<RARITIES.length;i++){r-=rarityWeights[i];if(r<=0)return RARITIES[i];}
+  return RARITIES[0];
+}
+
+function pickPlayer(rname){
+  const pool=players.filter(p=>p.rarity===rname);
+  if(!pool.length)return players[Math.floor(Math.random()*players.length)];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function flipCard(){
+  const front=document.getElementById('cardFront');
+  if(!front.dataset.loaded||animating)return;
+  flipped=!flipped;
+  document.getElementById('cardInner').classList.toggle('flipped',flipped);
+  document.getElementById('flipHint').textContent=flipped?'Click card to flip back':'Click to reveal';
+}
+
+function triggerPull(username){
+  if(animating)return;
+  if(!players.length){setNotif('#ff8888','No cards in roster!');return;}
+  animating=true;
+  document.getElementById('pullBtn').disabled=true;
+
+  const rarity=pickRarity();
+  const player=pickPlayer(rarity.name);
+  const user=username||'Anonymous';
+  const timeStr=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+  if(flipped){
+    document.getElementById('cardInner').classList.remove('flipped');
+    flipped=false;
+    setTimeout(()=>buildCard(rarity,player,user,timeStr),800);
+  } else {
+    buildCard(rarity,player,user,timeStr);
+  }
+}
+
+function drawPlayerArt(canvas,player,rarity){
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  const pal=EL_PAL[player.el||'normal'];
+  const bg=player.photoBg||pal.bg||'#0d0d20';
+  const acc=player.photoAcc||pal.acc||rarity.color;
+  ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  for(let i=0;i<6;i++){
+    ctx.beginPath();ctx.moveTo(w*0.65+i*28,0);ctx.lineTo(w+20,h*0.35+i*20);ctx.lineTo(w+20,0);
+    ctx.closePath();ctx.fillStyle=acc+'10';ctx.fill();
+  }
+  ctx.strokeStyle=acc+'0a';ctx.lineWidth=1;
+  for(let x=0;x<w;x+=22){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=22){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  const cx=w*0.44,cy=h*0.46;
+  ctx.beginPath();ctx.ellipse(cx,cy+18,36,52,0,0,Math.PI*2);ctx.fillStyle=acc+'18';ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx-26,cy+58);ctx.lineTo(cx-30,cy+4);ctx.lineTo(cx-16,cy-8);
+  ctx.lineTo(cx,cy-4);ctx.lineTo(cx+16,cy-8);ctx.lineTo(cx+30,cy+4);ctx.lineTo(cx+26,cy+58);
+  ctx.closePath();ctx.fillStyle=acc+'55';ctx.fill();ctx.strokeStyle=acc+'aa';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.font=`bold 20px 'Bebas Neue',sans-serif`;ctx.fillStyle=acc+'cc';ctx.textAlign='center';
+  ctx.fillText(String(player.id||1).padStart(2,'0'),cx,cy+26);
+  ctx.beginPath();ctx.arc(cx,cy-22,17,0,Math.PI*2);ctx.fillStyle=acc+'44';ctx.fill();ctx.strokeStyle=acc+'88';ctx.lineWidth=1.5;ctx.stroke();
+  for(const[ox,oy,r]of[[-9,-26,5],[9,-26,5]]){
+    ctx.beginPath();ctx.arc(cx+ox,cy+oy,r,0,Math.PI*2);ctx.fillStyle=acc+'bb';ctx.fill();
+    ctx.beginPath();ctx.arc(cx+ox,cy+oy,2.5,0,Math.PI*2);ctx.fillStyle='#000a';ctx.fill();
+  }
+  ctx.lineWidth=8;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(cx-30,cy+4);ctx.lineTo(cx-46,cy+22);ctx.lineTo(cx-38,cy+32);ctx.strokeStyle=acc+'55';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+30,cy+4);ctx.lineTo(cx+46,cy+22);ctx.lineTo(cx+38,cy+32);ctx.stroke();
+  ctx.lineWidth=9;
+  ctx.beginPath();ctx.moveTo(cx-12,cy+58);ctx.lineTo(cx-15,cy+86);ctx.strokeStyle=acc+'44';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+12,cy+58);ctx.lineTo(cx+15,cy+86);ctx.stroke();
+  ctx.lineCap='butt';ctx.lineWidth=1;
+  if(rarity.idx===4){
+    ctx.save();ctx.translate(w-20,20);
+    ctx.beginPath();
+    for(let a=0;a<Math.PI*2;a+=Math.PI/5){
+      const r1=10,r2=4;
+      const x1=Math.cos(a)*r1,y1=Math.sin(a)*r1;
+      const x2=Math.cos(a+Math.PI/5)*r2,y2=Math.sin(a+Math.PI/5)*r2;
+      if(a===0)ctx.moveTo(x1,y1);else ctx.lineTo(x1,y1);ctx.lineTo(x2,y2);
+    }
+    ctx.closePath();ctx.fillStyle='#f0c040cc';ctx.fill();ctx.restore();
+  }
+}
+
+function buildCard(rarity,player,user,timeStr){
+  const front=document.getElementById('cardFront');
+  const inner=document.getElementById('cardInner');
+  front.style.setProperty('--card-color',rarity.color);
+  front.style.borderColor=rarity.color;
+  front.dataset.loaded='1';
+  inner.className='card-inner';
+  if(rarity.name==='LEGENDARY')inner.classList.add('legendary');
+  else if(rarity.name==='EPIC')inner.classList.add('epic');
+
+  document.getElementById('cNum').textContent='#'+String(player.id).padStart(3,'0');
+  document.getElementById('cSeries').textContent=(player.series||'BASE')+' SERIES';
+  document.getElementById('cRarityPill').textContent=rarity.stars+' '+rarity.name;
+  document.getElementById('cRarityPill').style.color=rarity.color;
+  document.getElementById('cTop').style.background=rarity.band;
+  document.getElementById('cBottom').style.background=rarity.accent;
+  document.getElementById('cTeam').textContent=(player.team||'').toUpperCase();
+
+  const photo=document.getElementById('cPhoto');
+  photo.style.background=player.photoBg||'#0d1520';
+  if(player.image){
+    photo.innerHTML=`<img src="${player.image}" style="width:100%;height:100%;object-fit:cover;display:block;">
+    <div class="card-name-banner">
+      <div class="card-player-name">${(player.name||'').toUpperCase()}</div>
+      <div class="card-handle" style="color:${rarity.color}">${player.handle||''}</div>
+    </div>`;
+  } else {
+    photo.innerHTML=`<canvas id="artCanvas" width="230" height="272"></canvas>
+    <div class="card-name-banner">
+      <div class="card-player-name">${(player.name||'').toUpperCase()}</div>
+      <div class="card-handle" style="color:${rarity.color}">${player.handle||''}</div>
+    </div>`;
+    drawPlayerArt(document.getElementById('artCanvas'),player,rarity);
+  }
+
+  for(let i=0;i<5;i++)document.getElementById('d'+i).classList.toggle('on',i<rarity.dots);
+
+  rarityCount[rarity.name]=(rarityCount[rarity.name]||0)+1;
+  if(currentStreak.name===rarity.name)currentStreak.count++;
+  else currentStreak={name:rarity.name,count:1};
+  if(currentStreak.count>bestStreak.count)bestStreak={name:rarity.name,color:rarity.color,count:currentStreak.count};
+
+  pullHistory.unshift({player:player.name,rarity:rarity.name,color:rarity.color,stars:rarity.stars,user,time:timeStr,playerObj:player,rarityObj:rarity});
+  if(pullHistory.length>200)pullHistory.pop();
+  updateHistory();
+
+  setNotif(rarity.color,rarity.stars+' '+rarity.name+' — '+player.name+' for @'+user+'!');
+
+  if(slobsMode) showOverlayCard(rarity,player,user);
+
+  setTimeout(()=>{
+    document.getElementById('cardInner').classList.add('flipped');
+    flipped=true;
+    document.getElementById('flipHint').textContent='Click card to flip back';
+    animating=false;
+    if(accessToken)document.getElementById('pullBtn').disabled=false;
+  },350);
+}
+
+function setNotif(color,text){
+  const n=document.getElementById('notif');
+  n.style.color=color;n.textContent=text;
+}
+
+function updateHistory(){
+  const tot=pullHistory.length;
+  document.getElementById('sTot').textContent=tot;
+  document.getElementById('sLeg').textContent=rarityCount['LEGENDARY']||0;
+  const se=document.getElementById('sStrk');
+  if(bestStreak.count>0){se.textContent=bestStreak.count+'x';se.style.color=bestStreak.color;}
+  const bd=document.getElementById('rbd');
+  bd.innerHTML='';
+  for(const r of RARITIES){
+    const c=rarityCount[r.name]||0;if(!c)continue;
+    const pct=Math.round(c/tot*100);
+    bd.innerHTML+=`<span class="rb-pill" style="background:${r.color}20;color:${r.color};">${r.name.charAt(0)+r.name.slice(1).toLowerCase()} ${c} (${pct}%)</span>`;
+  }
+  const list=document.getElementById('histList');
+  list.innerHTML='';
+  for(const p of pullHistory){
+    list.innerHTML+=`<div class="pull-row" style="--rc:${p.color}">
+      <div class="pull-mini" style="border-color:${p.color}">
+        <div class="pull-mini-top" style="background:${p.color}"></div>
+        <div class="pull-mini-body" style="background:${p.playerObj.photoBg||'#0d0d20'}"></div>
+      </div>
+      <div>
+        <div class="pull-player">${p.player}</div>
+        <div class="pull-rarity-lbl" style="color:${p.color}">${p.stars} ${p.rarity}</div>
+        <div class="pull-user-lbl">@${p.user}</div>
+      </div>
+      <div class="pull-time">${p.time}</div>
+    </div>`;
+  }
+}
+
+function clearHistory(){
+  pullHistory=[];rarityCount={};bestStreak={name:'—',color:'var(--text2)',count:0};currentStreak={name:null,count:0};
+  document.getElementById('sTot').textContent='0';
+  document.getElementById('sLeg').textContent='0';
+  document.getElementById('sStrk').textContent='—';
+  document.getElementById('sStrk').style.color='var(--text2)';
+  document.getElementById('rbd').innerHTML='';
+  document.getElementById('histList').innerHTML='<div class="empty-state">No pulls yet — waiting for redeems...</div>';
+  setNotif('var(--text3)','Waiting for channel point redeem...');
+}
+
+/* ===== TAB SWITCHING ===== */
+function switchTab(t){
+  if(!accessToken&&t==='widget')return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+t).classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p=>{p.classList.remove('active');p.style.display='';});
+  document.getElementById('pane-auth').style.display='none';
+  document.getElementById('pane-'+t).classList.add('active');
+}
+
+/* ===== EDITOR ===== */
+function renderPlayerList(){
+  const el=document.getElementById('playerList');
+  const q=(document.getElementById('sSearch')?.value||'').toLowerCase();
+  const rf=document.getElementById('sFilter')?.value||'';
+  const filtered=players.filter(p=>{
+    if(rf&&p.rarity!==rf)return false;
+    if(q&&!p.name.toLowerCase().includes(q)&&!(p.handle||'').toLowerCase().includes(q)&&!(p.team||'').toLowerCase().includes(q))return false;
+    return true;
+  });
+  document.getElementById('rosterCount').textContent=players.length;
+  const dlCount=document.getElementById('dlCardCount');
+  if(dlCount)dlCount.textContent=players.length;
+  if(!filtered.length){el.innerHTML=`<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px;font-style:italic;">No cards match.</div>`;return;}
+  el.innerHTML='';
+  for(const p of filtered){
+    const r=RARITIES.find(r=>r.name===p.rarity)||RARITIES[0];
+    el.innerHTML+=`<div class="p-item${p.id===selectedId?' selected':''}" onclick="selectPlayer(${p.id})">
+      <div style="min-width:0;">
+        <div class="p-name">${p.name}</div>
+        <div class="p-sub" style="color:${r.color}">${p.rarity} · ${p.team||'—'}</div>
+      </div>
+      <div class="p-del" onclick="event.stopPropagation();deletePlayer(${p.id})">✕</div>
+    </div>`;
+  }
+}
+
+function selectPlayer(id){selectedId=id;renderPlayerList();renderEditor();}
+
+function addPlayer(){
+  const accs=['#ff40c0','#8080dd','#40a0ff','#50d820','#ff5500','#c060ff','#30dd70','#8840cc','#f0c040','#606060'];
+  const bgs=['#1a0820','#080818','#101820','#0d1808','#001020','#1a0800','#101018','#001a08','#100818','#0a0a0a'];
+  const ci=nextId%accs.length;
+  const p={id:nextId++,name:'New Streamer',handle:'@newstreamer',team:'MY TEAM',rarity:'COMMON',series:'BASE',photoBg:bgs[ci],photoAcc:accs[ci],image:null,flavor:''};
+  players.push(p);selectedId=p.id;
+  document.getElementById('sSearch').value='';document.getElementById('sFilter').value='';
+  renderPlayerList();renderEditor();
+}
+
+function deletePlayer(id){
+  players=players.filter(p=>p.id!==id);
+  if(selectedId===id)selectedId=players[0]?.id||null;
+  renderPlayerList();
+  if(selectedId)renderEditor();
+  else document.getElementById('editorMain').innerHTML='<div class="empty-state" style="margin-top:5rem;">No cards — click + Add or Bulk to create some.</div>';
+}
+
+function liveUpdate(key,val){
+  const p=players.find(x=>x.id===selectedId);if(!p)return;
+  p[key]=val;
+  if(key==='rarity')renderPlayerList();
+}
+
+function renderEditor(){
+  const p=players.find(x=>x.id===selectedId);if(!p)return;
+  const main=document.getElementById('editorMain');
+  const rarOpts=RARITIES.map(r=>`<option value="${r.name}"${p.rarity===r.name?' selected':''}>${r.name}</option>`).join('');
+  const serOpts=['BASE','LEGENDS','ICONS','ROOKIES','SPECIAL'].map(s=>`<option value="${s}"${p.series===s?' selected':''}>${s}</option>`).join('');
+  const imgPrev=p.image?`<img src="${p.image}" style="display:block;width:100%;height:88px;object-fit:cover;border-radius:5px;">`:
+    `<div class="img-drop-txt">Click or drag a photo here<br><small style="color:var(--text3)">PNG, JPG, GIF</small></div>`;
+  main.innerHTML=`
+  <div class="e-sec">
+    <h3>Player Info</h3>
+    <div class="f-row"><div class="f-lbl">Display Name</div><input class="f-input" value="${p.name}" oninput="liveUpdate('name',this.value)"></div>
+    <div class="f-row"><div class="f-lbl">Handle</div><input class="f-input" value="${p.handle||''}" oninput="liveUpdate('handle',this.value)"></div>
+    <div class="f-row"><div class="f-lbl">Team</div><input class="f-input" value="${p.team||''}" oninput="liveUpdate('team',this.value)"></div>
+    <div class="f-row"><div class="f-lbl">Rarity</div><select class="f-input" onchange="liveUpdate('rarity',this.value)">${rarOpts}</select></div>
+    <div class="f-row"><div class="f-lbl">Series</div><select class="f-input" onchange="liveUpdate('series',this.value)">${serOpts}</select></div>
+    <div class="f-row"><div class="f-lbl">Flavor Text</div><input class="f-input" value="${p.flavor||''}" oninput="liveUpdate('flavor',this.value)"></div>
+  </div>
+  <div class="e-sec">
+    <h3>Card Art</h3>
+    <div class="f-row"><div class="f-lbl">BG Color</div><input class="f-input" type="color" value="${p.photoBg||'#0a0a14'}" oninput="liveUpdate('photoBg',this.value)" style="height:34px;padding:2px 4px;cursor:pointer;"></div>
+    <div class="f-row"><div class="f-lbl">Accent Color</div><input class="f-input" type="color" value="${p.photoAcc||'#6060cc'}" oninput="liveUpdate('photoAcc',this.value)" style="height:34px;padding:2px 4px;cursor:pointer;"></div>
+    <div class="img-drop">
+      ${imgPrev}
+      <input type="file" accept="image/*" onchange="handleImg(event)">
+    </div>
+    ${p.image?`<button style="margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;padding:5px 12px;background:transparent;border:1px solid #ff7070;border-radius:5px;color:#ff7070;cursor:pointer;" onclick="clearImg()">Remove Photo</button>`:''}
+  </div>
+  <div>
+    <button class="save-btn" onclick="savePlayer()">Save Card</button>
+    <div class="save-ok" id="saveOk">✓ SAVED</div>
+  </div>`;
+}
+
+function handleImg(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{const p=players.find(x=>x.id===selectedId);if(!p)return;p.image=ev.target.result;renderEditor();};
+  r.readAsDataURL(file);
+}
+function clearImg(){const p=players.find(x=>x.id===selectedId);if(!p)return;p.image=null;renderEditor();}
+function savePlayer(){
+  localStorage.setItem('card_drop_players',JSON.stringify(players));
+  renderPlayerList();
+  const ok=document.getElementById('saveOk');ok.style.display='block';setTimeout(()=>ok.style.display='none',2000);
+}
+
+function showBulkImport(){
+  selectedId=null;renderPlayerList();
+  document.getElementById('editorMain').innerHTML=`
+  <div class="e-sec">
+    <h3>Bulk Import</h3>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px;">One card per line. Comma-separated fields:<br>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold);">Name, Handle, Team, Rarity, Series</span><br>
+    <span style="font-size:11px;color:var(--text3);">Everything after Name is optional. Rarity defaults to the selector below.</span></p>
+    <pre style="font-size:11px;color:var(--text2);background:var(--bg3);padding:10px;border-radius:6px;margin-bottom:12px;line-height:1.7;border:1px solid var(--border);">GigaChad Greg, @gigachadgreg, Alpha Squad, LEGENDARY, ICONS
+Kappa King, @kappaking, Ironics FC, EPIC
+LUL Larry, @lullarry, Comedy Club
+Sadge Sam</pre>
+    <textarea id="bulkInput" class="f-input" rows="10" placeholder="Paste your card list here..." style="width:100%;resize:vertical;line-height:1.6;font-family:'Share Tech Mono',monospace;font-size:12px;margin-bottom:10px;"></textarea>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button class="save-btn" onclick="runBulkImport()">Import Cards</button>
+      <span style="font-size:12px;color:var(--text2);">Default rarity:</span>
+      <select id="bulkRarity" class="f-input" style="width:120px;font-size:12px;padding:6px 8px;">
+        <option value="COMMON">Common</option>
+        <option value="UNCOMMON">Uncommon</option>
+        <option value="RARE">Rare</option>
+        <option value="EPIC">Epic</option>
+        <option value="LEGENDARY">Legendary</option>
+      </select>
+      <button style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;padding:9px 14px;background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text2);cursor:pointer;" onclick="renderPlayerList();document.getElementById('editorMain').innerHTML='<div class=\\'empty-state\\' style=\\'margin-top:5rem;\\'>Select a card to edit.</div>'">Cancel</button>
+    </div>
+    <div id="bulkResult" style="margin-top:10px;font-size:12px;font-weight:700;letter-spacing:1px;min-height:18px;"></div>
+  </div>`;
+}
+
+function runBulkImport(){
+  const raw=document.getElementById('bulkInput').value.trim();
+  const def=document.getElementById('bulkRarity').value;
+  const res=document.getElementById('bulkResult');
+  if(!raw){res.style.color='#ff9070';res.textContent='Paste some names first!';return;}
+  const valid=RARITIES.map(r=>r.name);
+  const accs=['#ff40c0','#8080dd','#40a0ff','#50d820','#ff5500','#c060ff','#30dd70','#8840cc','#f0c040','#606060'];
+  const bgs=['#1a0820','#080818','#101820','#0d1808','#001020','#1a0800','#101018','#001a08','#100818','#0a0a0a'];
+  let added=0;
+  for(const line of raw.split('\n').map(l=>l.trim()).filter(Boolean)){
+    const parts=line.split(',').map(s=>s.trim());
+    const name=parts[0]||'New Card';
+    const handle=parts[1]||('@'+name.toLowerCase().replace(/\s+/g,''));
+    const team=parts[2]||'MY TEAM';
+    const rarityRaw=(parts[3]||'').toUpperCase();
+    const rarity=valid.includes(rarityRaw)?rarityRaw:def;
+    const series=(parts[4]||'BASE').toUpperCase();
+    const ci=nextId%accs.length;
+    players.push({id:nextId++,name,handle,team,rarity,series,photoBg:bgs[ci],photoAcc:accs[ci],image:null,flavor:''});
+    added++;
+  }
+  renderPlayerList();
+  res.style.color='#4ad48a';
+  res.textContent=`✓ ${added} card${added!==1?'s':''} imported! Select any card in the sidebar to edit.`;
+  document.getElementById('bulkInput').value='';
+}
+
+/* ===== THEME ===== */
+const themeColors=[
+  {key:'--bg',lbl:'Background',val:'#0c0c10'},{key:'--bg2',lbl:'Surface',val:'#13131a'},
+  {key:'--bg3',lbl:'Card BG',val:'#1a1a24'},{key:'--gold',lbl:'Gold Accent',val:'#f0c040'},
+  {key:'--text',lbl:'Text',val:'#f0f0f8'},{key:'--text2',lbl:'Text Muted',val:'#9090b0'},
+  {key:'--border',lbl:'Border',val:'#252535'},{key:'--common',lbl:'Common',val:'#9ca3b0'},
+  {key:'--uncommon',lbl:'Uncommon',val:'#4ad48a'},{key:'--rare',lbl:'Rare',val:'#50a8f8'},
+  {key:'--epic',lbl:'Epic',val:'#c080fc'},{key:'--legendary',lbl:'Legendary',val:'#f0c040'},
+];
+function initTheme(){
+  const grid=document.getElementById('themeGrid');grid.innerHTML='';
+  for(const t of themeColors){
+    const sid='sw'+t.key.replace(/[^a-z]/gi,'_');
+    grid.innerHTML+=`<div class="color-row"><div class="swatch" id="${sid}" style="background:${t.val}"><input type="color" value="${t.val}" oninput="previewColor('${t.key}',this.value,'${sid}')"></div><div class="swatch-lbl">${t.lbl}</div></div>`;
+  }
+  const ws=document.getElementById('weightSliders');ws.innerHTML='';
+  RARITIES.forEach((r,i)=>{
+    ws.innerHTML+=`<div class="weight-row"><div class="weight-lbl" style="color:${r.color}">${r.name}</div><input type="range" min="0" max="80" step="1" value="${rarityWeights[i]}" class="weight-slider" oninput="rarityWeights[${i}]=+this.value;document.getElementById('wv${i}').textContent=this.value;updateWeightTotal()"><div class="weight-val" id="wv${i}">${rarityWeights[i]}</div></div>`;
+  });
+  updateWeightTotal();
+}
+function previewColor(key,val,sid){document.getElementById(sid).style.background=val;const t=themeColors.find(x=>x.key===key);if(t)t.val=val;}
+function applyTheme(){for(const t of themeColors)document.documentElement.style.setProperty(t.key,t.val);}
+function updateWeightTotal(){
+  const tot=rarityWeights.reduce((s,w)=>s+w,0);
+  const el=document.getElementById('wTotal');
+  if(el)el.textContent='Chances: '+RARITIES.map((r,i)=>r.name.charAt(0)+r.name.slice(1).toLowerCase()+' '+Math.round(rarityWeights[i]/tot*100)+'%').join(' · ');
+}
+
+initTheme();
+renderPlayerList();
+init();
+</script>
+</body>
+</html>
