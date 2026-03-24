@@ -609,6 +609,8 @@ function showConnectPane(){
   document.getElementById('connectCard').style.display='block';
   showAuthPane();
 }
+
+function showSetupPane(){
   const c=getConfig();
   document.getElementById('setupClientId').value=c.clientId;
   document.getElementById('setupChannel').value=c.channelName;
@@ -621,7 +623,9 @@ function showConnectPane(){
 
 function downloadOverlay(){
   const c=getConfig();
-  const players=JSON.stringify(players||[]);
+  const playersJson=JSON.stringify(players);
+  const RELAY='https://dexteritycs.github.io/Card-Drop/';
+  const tokenKey='overlay_token_'+c.channelName;
 
   const html=`<!DOCTYPE html>
 <html lang="en">
@@ -674,9 +678,30 @@ html,body{width:1920px;height:1080px;background:transparent;overflow:hidden;font
 .redeemer-rarity{font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;text-shadow:0 1px 8px rgba(0,0,0,1);}
 .timer-bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;width:260px;}
 .timer-fill{height:100%;border-radius:2px;background:#f0c040;transform-origin:left;transition:transform linear;}
+/* auth prompt shown until token received */
+#authPrompt{position:fixed;inset:0;background:rgba(8,8,16,.96);display:flex;align-items:center;justify-content:center;z-index:100;}
+.ap-box{background:#13131a;border:1px solid #353550;border-radius:14px;padding:36px 40px;max-width:480px;text-align:center;}
+.ap-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:6px;color:#f0c040;margin-bottom:8px;}
+.ap-sub{font-size:13px;color:#9090b0;line-height:1.6;margin-bottom:24px;}
+.ap-btn{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:4px;padding:13px 28px;background:#9146ff;border:none;border-radius:8px;color:#fff;cursor:pointer;transition:background .2s;}
+.ap-btn:hover{background:#7c35e0;}
+.ap-waiting{font-size:12px;color:#9090b0;margin-top:16px;display:none;}
+.ap-note{font-size:11px;color:#55556a;margin-top:14px;line-height:1.6;}
 </style>
 </head>
 <body>
+
+<div id="authPrompt">
+  <div class="ap-box">
+    <div class="ap-title">Card Drop Overlay</div>
+    <div class="ap-sub">Click below to connect your Twitch account.<br>A browser tab will open — authorize and come back.</div>
+    <button class="ap-btn" id="authBtn" onclick="doAuth()">
+      Connect with Twitch
+    </button>
+    <div class="ap-waiting" id="apWaiting">Waiting for authorization... you can close that tab once done.</div>
+    <div class="ap-note">Only needs <code>channel:read:redemptions</code> — read-only.<br>You only need to do this once per browser.</div>
+  </div>
+</div>
 
 <div class="card-wrap" id="cardWrap">
   <div class="card-scene">
@@ -723,7 +748,8 @@ html,body{width:1920px;height:1080px;background:transparent;overflow:hidden;font
 const CLIENT_ID   = ${JSON.stringify(c.clientId)};
 const CHANNEL     = ${JSON.stringify(c.channelName)};
 const REWARD      = ${JSON.stringify(c.rewardName||'Card Drop')};
-const REDIRECT    = 'https://dexteritycs.github.io/Card-Drop/';
+const RELAY_URL   = ${JSON.stringify(RELAY)};
+const TOKEN_KEY   = ${JSON.stringify(tokenKey)};
 const DISPLAY_SEC = 12;
 
 const RARITIES=[
@@ -733,12 +759,27 @@ const RARITIES=[
   {name:'EPIC',     color:'#c080fc',weight:8, dots:4,stars:'◆◆◆◆',idx:3,band:'#1a0e2a',accent:'#1c1030'},
   {name:'LEGENDARY',color:'#f0c040',weight:2, dots:5,stars:'★★★★★',idx:4,band:'#201600',accent:'#221800'},
 ];
-const PLAYERS=${players};
+const PLAYERS=${playersJson};
 
-let token=localStorage.getItem('overlay_token');
-let broadcasterId=null;
-let esSocket=null;
-let hideTimer=null;
+let token=localStorage.getItem(TOKEN_KEY);
+let broadcasterId=null,esSocket=null,hideTimer=null,pollTimer=null;
+
+function doAuth(){
+  const authUrl='https://id.twitch.tv/oauth2/authorize'
+    +'?client_id='+CLIENT_ID
+    +'&redirect_uri='+encodeURIComponent(RELAY_URL)
+    +'&response_type=token'
+    +'&scope=channel:read:redemptions'
+    +'&state='+encodeURIComponent(TOKEN_KEY);
+  window.open(authUrl,'_blank','width=600,height=700');
+  document.getElementById('apWaiting').style.display='block';
+  document.getElementById('authBtn').disabled=true;
+  // poll localStorage every second for the token saved by the relay page
+  pollTimer=setInterval(()=>{
+    const t=localStorage.getItem(TOKEN_KEY);
+    if(t){clearInterval(pollTimer);token=t;startup();}
+  },1000);
+}
 
 function pickRarity(){
   const tot=RARITIES.reduce((s,r)=>s+r.weight,0);
@@ -780,12 +821,8 @@ function drawArt(canvas,player,rarity){
 
 function triggerCard(username){
   if(hideTimer)clearTimeout(hideTimer);
-  const rarity=pickRarity();
-  const player=pickPlayer(rarity.name);
-  const front=document.getElementById('cardFront');
-  const inner=document.getElementById('cardInner');
-  const wrap=document.getElementById('cardWrap');
-
+  const rarity=pickRarity(),player=pickPlayer(rarity.name);
+  const front=document.getElementById('cardFront'),inner=document.getElementById('cardInner'),wrap=document.getElementById('cardWrap');
   front.style.setProperty('--cc',rarity.color);front.style.borderColor=rarity.color;
   front.className='card-face card-front'+(rarity.name==='LEGENDARY'?' lglow':rarity.name==='EPIC'?' eglow':'');
   inner.className='card-inner';
@@ -799,7 +836,6 @@ function triggerCard(username){
   document.getElementById('redeemerName').textContent='@'+username;
   document.getElementById('redeemerRarity').textContent=rarity.stars+' '+rarity.name+' PULL!';
   document.getElementById('redeemerRarity').style.color=rarity.color;
-
   const photo=document.getElementById('cPhoto');
   photo.style.background=player.photoBg||'#0d1520';
   if(player.image){
@@ -808,39 +844,31 @@ function triggerCard(username){
     photo.innerHTML='<canvas id="artCanvas" width="256" height="302"></canvas><div class="card-name-banner"><div class="card-player-name">'+player.name.toUpperCase()+'</div><div class="card-handle" style="color:'+rarity.color+'">'+player.handle+'</div></div>';
     drawArt(document.getElementById('artCanvas'),player,rarity);
   }
-
   wrap.classList.remove('hiding');
   requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add('visible')));
-  setTimeout(()=>{inner.classList.add('flipped');},1200);
-
+  setTimeout(()=>inner.classList.add('flipped'),1200);
   const fill=document.getElementById('timerFill');
   fill.style.transition='none';fill.style.transform='scaleX(1)';
   setTimeout(()=>{fill.style.transition='transform '+DISPLAY_SEC+'s linear';fill.style.transform='scaleX(0)';},100);
-
-  hideTimer=setTimeout(()=>{
-    wrap.classList.add('hiding');wrap.classList.remove('visible');
-    setTimeout(()=>{inner.classList.remove('flipped');},600);
-  },DISPLAY_SEC*1000);
+  hideTimer=setTimeout(()=>{wrap.classList.add('hiding');wrap.classList.remove('visible');setTimeout(()=>inner.classList.remove('flipped'),600);},DISPLAY_SEC*1000);
 }
 
-async function init(){
-  const hash=window.location.hash;
-  if(hash){
-    const p=new URLSearchParams(hash.replace('#','?').slice(1));
-    const t=p.get('access_token');
-    if(t){token=t;localStorage.setItem('overlay_token',t);window.history.replaceState(null,'',window.location.pathname);}
-  }
-  if(!token){
-    window.location.href='https://id.twitch.tv/oauth2/authorize?client_id='+CLIENT_ID+'&redirect_uri='+encodeURIComponent(window.location.href.split('#')[0])+'&response_type=token&scope=channel:read:redemptions';
-    return;
-  }
+async function startup(){
+  document.getElementById('authPrompt').style.display='none';
   try{
     const r=await fetch('https://api.twitch.tv/helix/users?login='+CHANNEL,{headers:{'Client-Id':CLIENT_ID,'Authorization':'Bearer '+token}});
+    if(!r.ok)throw new Error();
     const d=await r.json();
     broadcasterId=d.data[0]?.id;
     if(!broadcasterId)throw new Error();
     openES();
-  }catch(e){localStorage.removeItem('overlay_token');location.reload();}
+  }catch(e){
+    localStorage.removeItem(TOKEN_KEY);
+    token=null;
+    document.getElementById('authPrompt').style.display='flex';
+    document.getElementById('authBtn').disabled=false;
+    document.getElementById('apWaiting').style.display='none';
+  }
 }
 
 function openES(){
@@ -860,7 +888,9 @@ function openES(){
   esSocket.onclose=(e)=>{if(e.code!==1000)setTimeout(openES,5000);};
 }
 
-init();
+// on load: if token already saved, go straight in
+if(token){startup();}
+else{document.getElementById('authPrompt').style.display='flex';}
 <\/script>
 </body>
 </html>`;
@@ -900,6 +930,33 @@ function showWidgetPane(){
 }
 
 async function init(){
+  // handle overlay token relay — overlay sends state=tokenKey, we save token for it
+  const hash=window.location.hash;
+  if(hash){
+    const p=new URLSearchParams(hash.replace('#','?').slice(1));
+    const token=p.get('access_token');
+    const state=p.get('state');
+    if(token&&state&&state.startsWith('overlay_token_')){
+      localStorage.setItem(state,token);
+      window.history.replaceState(null,'',window.location.pathname);
+      document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+      document.getElementById('pane-auth').style.display='flex';
+      document.getElementById('pane-auth').classList.add('active');
+      document.getElementById('setupCard').style.display='none';
+      document.getElementById('connectCard').style.display='none';
+      document.getElementById('pane-auth').innerHTML=`
+        <div class="auth-card" style="max-width:400px;text-align:center;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:6px;color:var(--gold);margin-bottom:12px;">All Done!</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:20px;">
+            Your overlay is now authorized.<br>
+            You can <b style="color:var(--text);">close this tab</b> and go back to your overlay.
+          </div>
+          <div style="font-size:12px;color:var(--text3);">The overlay will connect automatically.</div>
+        </div>`;
+      return;
+    }
+  }
+
   const fromCallback=handleOAuthCallback();
   const storedToken=localStorage.getItem('twitch_token');
 
