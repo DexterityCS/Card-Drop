@@ -71,7 +71,7 @@ async function blueskyLogin() {
   const res = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ identifier: BLUESKY_HANDLE, password: BLUESKY_PASSWORD }),
+    body:    JSON.stringify({ identifier: BLUESKY_HANDLE, password: BLUESKY_APP_PASSWORD }),
   });
   if (!res.ok) throw new Error(`Login failed: ${await res.text()}`);
   return await res.json();
